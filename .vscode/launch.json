@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "debug tsutil",
+        "type": "debugpy",
+        "request": "launch",
+        "cwd": "${workspaceFolder}",
+        "module": "tsutil",
+        "console": "integratedTerminal",
+        "autoReload": {
+          "enable": false,
+          "include": [
+            "**/*.py",
+            "**/*.pyw"
+          ] 
+        },
+        "justMyCode": true
+      }
+    ]
+  }
+  

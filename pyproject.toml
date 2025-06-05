@@ -1,0 +1,44 @@
+[project]
+name = "tsutil"
+dynamic = ["version"]
+description = "TrainScanner Utility"
+authors = [
+    {name = "yamakox",email = "yamakox@gmail.com"}
+]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta", 
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "wxpython (>=4.2.3)",
+    "numpy (>=2.2.0,<3.0.0)",
+    "ffio @ git+https://github.com/yamakox/ffio.git",
+    "opencv-python-headless (>=4.11.0,<5.0.0)",
+]
+
+[project.scripts]
+tsutil = "tsutil:main"
+
+[project.gui-scripts]
+tsutil = "tsutil:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{include = "tsutil", from = "src"}]
+version = "0.0.0"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = true
