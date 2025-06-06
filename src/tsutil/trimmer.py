@@ -40,9 +40,9 @@ class MainFrame(ToolFrame):
 
         # input video thumbnail 
         sizer.Add(wx.StaticText(panel, label='赤いバーをドラッグして、動画の開始位置と終了位置を指定してください。'), flag=wx.ALIGN_CENTER)
-        self.input_video_thumbnail = VideoThumbnail(panel)
+        self.input_video_thumbnail = VideoThumbnail(panel, use_range_bar=True)
         sizer.Add(self.input_video_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
-        self.preview_video_thumbnail = VideoThumbnail(panel, use_range_bar=False)
+        self.preview_video_thumbnail = VideoThumbnail(panel)
         sizer.Add(self.preview_video_thumbnail, flag=wx.ALIGN_CENTER)
 
         # trimming button
@@ -51,7 +51,7 @@ class MainFrame(ToolFrame):
         sizer.Add(trimming_button, flag=wx.ALIGN_CENTER|wx.ALL, border=16)
 
         # output video thumbnail
-        self.output_video_thumbnail = VideoThumbnail(panel, use_range_bar=False)
+        self.output_video_thumbnail = VideoThumbnail(panel)
         sizer.Add(self.output_video_thumbnail, flag=wx.ALIGN_CENTER)
         sizer.Add(wx.StaticText(panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。'), flag=wx.ALIGN_CENTER)
 
@@ -88,15 +88,6 @@ class MainFrame(ToolFrame):
     def __on_video_range_changed(self, event):
         self.preview_video_thumbnail.copy_frames(event.frames[event.start:event.end])
 
-    def __on_folder_button_clicked(self, event):
-        path = self.output_filename_text.GetValue()
-        if not path:
-            return
-        path = Path(path)
-        if not path.exists():
-            return
-        wx.LaunchDefaultApplication(str(path.parent))
-
     def __on_trimming_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
             wx.MessageBox('トリミングする動画が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
@@ -132,3 +123,12 @@ class MainFrame(ToolFrame):
                 wx.MessageBox(f'トリミングに失敗しました:\n{stderr_data}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
                 return
             self.output_video_thumbnail.load_video(output_path)
+
+    def __on_folder_button_clicked(self, event):
+        path = self.output_filename_text.GetValue()
+        if not path:
+            return
+        path = Path(path)
+        if not path.exists():
+            return
+        wx.LaunchDefaultApplication(str(path.parent))

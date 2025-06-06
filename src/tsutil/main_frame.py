@@ -2,7 +2,7 @@ import wx
 import wx.adv
 import sys
 from .common import *
-from . import trimmer
+from . import trimmer, extractor
 from typing import Callable
 from importlib.metadata import version, metadata
 
@@ -55,12 +55,8 @@ class MainFrame(wx.Frame):
         frame.Show()
 
     def __launch_extractor(self, event):
-        wx.MessageBox(
-            "動画から画像の展開",
-            "動画から画像の展開",
-            wx.OK | wx.ICON_INFORMATION,
-            self,
-        )
+        frame = extractor.MainFrame(self)
+        frame.Show()
 
     def __launch_corrector(self, event):
         wx.MessageBox(
