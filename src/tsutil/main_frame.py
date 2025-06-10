@@ -10,6 +10,7 @@ from importlib.metadata import version, metadata
 
 PACKAGE_NAME = metadata(__package__).get('Name')
 WINDOW_SIZE = (600, 400)
+MARGIN = 16
 
 # MARK: main window
 
@@ -30,7 +31,7 @@ class MainFrame(wx.Frame):
 
         buttons = [
             ('【 動画のトリミング 】', 'カメラで撮影した動画の不要な前後部分を無劣化で削除します。', self.__launch_trimmer),
-            ('【 動画から画像の展開 】', 'カメラで撮影した動画の各フレームを画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。', self.__launch_extractor),
+            ('【 動画から連続画像の展開 】', 'カメラで撮影した動画の各フレームを連続した画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。', self.__launch_extractor),
             ('【 画像のブレ・傾き・歪みの補正 】', '手持ち撮影した動画から展開した画像ファイルの\nブレ、水平出し、台形補正を行います。', self.__launch_corrector),
         ]
         for i, (mainLabel, note, callback) in enumerate(buttons):

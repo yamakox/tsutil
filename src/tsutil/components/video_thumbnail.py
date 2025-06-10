@@ -4,14 +4,18 @@ import numpy as np
 import cv2
 import time
 from pathlib import Path
+import os
+import concurrent.futures as futures
 from ffio import FrameReader, Probe
 from .resource import resource
+from ..common import *
+from .histogram_view import HistogramView
 
 # MARK: constants
 
 RANGE_BAR_WIDTH = 10
 PROGRESS_BAR_HEIGHT = 10
-ARROW_SIZE = 10
+ARROW_SIZE = 12
 THUMBNAIL_SIZE = (1000, 100)
 FRAME_THUMBNAIL_MIN_WIDTH = 10
 DRAGGING_NONE = 0
@@ -19,6 +23,10 @@ DRAGGING_LEFT = 1
 DRAGGING_RIGHT = 2
 DRAGGING_RANGE = 3
 DRAGGING_X_ARROW = 4
+DRAGGING_LEFT_ARROW = 5
+DRAGGING_RIGHT_ARROW = 6
+
+MAX_WORKERS = 8
 
 # MARK: events
 
@@ -36,6 +44,14 @@ class VideoLoadedEvent(wx.ThreadEvent):
     def __init__(self):
         super().__init__(myEVT_VIDEO_LOADED)
 
+myEVT_VIDEO_LOAD_ERROR = wx.NewEventType()
+EVT_VIDEO_LOAD_ERROR = wx.PyEventBinder(myEVT_VIDEO_LOAD_ERROR)
+
+class VideoLoadErrorEvent(wx.ThreadEvent):
+    def __init__(self, message):
+        super().__init__(myEVT_VIDEO_LOAD_ERROR)
+        self.message = message
+
 myEVT_VIDEO_RANGE_CHANGED = wx.NewEventType()
 EVT_VIDEO_RANGE_CHANGED = wx.PyEventBinder(myEVT_VIDEO_RANGE_CHANGED)
 
@@ -50,10 +66,11 @@ myEVT_VIDEO_POSITION_CHANGED = wx.NewEventType()
 EVT_VIDEO_POSITION_CHANGED = wx.PyEventBinder(myEVT_VIDEO_POSITION_CHANGED)
 
 class VideoPositionChangedEvent(wx.ThreadEvent):
-    def __init__(self, frames, position):
+    def __init__(self, frames, position, frame_count):
         super().__init__(myEVT_VIDEO_POSITION_CHANGED)
         self.frames = frames
         self.position = position
+        self.frame_count = frame_count
 
 # MARK: main class
 
@@ -64,9 +81,10 @@ class VideoThumbnail(wx.Panel):
         super().__init__(parent, size=parent.FromDIP(wx.Size(w, h)), *args, **kwargs)
         self.use_range_bar = use_range_bar
         self.use_x_arrow = use_x_arrow
+        self.histogram_view = None
         self.start_pos = 0
         self.end_pos = THUMBNAIL_SIZE[0]
-        self.x_pos = THUMBNAIL_SIZE[0] // 2
+        self.frame_pos = None
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
         self.frames = []
@@ -75,6 +93,8 @@ class VideoThumbnail(wx.Panel):
         self.buf = np.ones((THUMBNAIL_SIZE[1], THUMBNAIL_SIZE[0], 3), dtype=np.uint8) * 192
         self.bitmap = wx.Bitmap.FromBuffer(THUMBNAIL_SIZE[0], THUMBNAIL_SIZE[1], self.buf.tobytes())
         self.bitmap_arrow_up = resource.get_bitmap_arrow_up()
+        self.bitmap_arrow_left = resource.get_bitmap_arrow_left()
+        self.bitmap_arrow_right = resource.get_bitmap_arrow_right()
 
         self.Bind(wx.EVT_PAINT, self.__on_paint)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.__on_destroy)
@@ -86,6 +106,10 @@ class VideoThumbnail(wx.Panel):
 
         self.Bind(EVT_VIDEO_LOADING, self.__on_video_loading)
         self.Bind(EVT_VIDEO_LOADED, self.__on_video_loaded)
+        self.Bind(EVT_VIDEO_LOAD_ERROR, self.__on_video_load_error)
+
+    def set_histogram_view(self, histogram_view):
+        self.histogram_view = histogram_view
 
     def clear(self):
         self.start_pos = 0
@@ -98,12 +122,12 @@ class VideoThumbnail(wx.Panel):
         self.progress_current = 0
         self.__update_bitmap()
 
-    def load_video(self, path):
+    def load_video(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG'):
         self.ensure_stop_loading()
         self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
         self.loading = threading.Thread(
             target=self.__video_load_worker, 
-            args=(path,), 
+            args=(path, rotation, filter_complex, output_path, format), 
             daemon=True,
         )
         self.loading.start()
@@ -125,7 +149,7 @@ class VideoThumbnail(wx.Panel):
         return 0 if self.loading else len(self.frames)
 
     def get_frame_range(self):
-        if self.loading:
+        if self.loading or not self.frames:
             return 0, 0
         start = len(self.frames) * self.start_pos // THUMBNAIL_SIZE[0]
         end = len(self.frames) * self.end_pos // THUMBNAIL_SIZE[0]
@@ -133,9 +157,7 @@ class VideoThumbnail(wx.Panel):
         return start, end
 
     def get_frame_position(self):
-        if self.loading:
-            return 0
-        return int((len(self.frames) - 1) * self.x_pos / (THUMBNAIL_SIZE[0] - 1) + .5)
+        return self.frame_pos
 
     def __update_bitmap(self):
         self.bitmap.CopyFromBuffer(self.buf.tobytes())
@@ -198,7 +220,14 @@ class VideoThumbnail(wx.Panel):
             if self.use_x_arrow:
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
                 gc.DrawRectangle(RANGE_BAR_WIDTH, THUMBNAIL_SIZE[1], THUMBNAIL_SIZE[0], ARROW_SIZE)
-                gc.DrawBitmap(self.bitmap_arrow_up, RANGE_BAR_WIDTH + self.x_pos - ARROW_SIZE // 2, THUMBNAIL_SIZE[1], ARROW_SIZE, ARROW_SIZE)
+                bw, bh = self.bitmap_arrow_up.GetWidth(), self.bitmap_arrow_up.GetHeight()
+                if len(self.frames) > 0 and self.frame_pos is not None:
+                    x = RANGE_BAR_WIDTH + int(self.frame_pos * (THUMBNAIL_SIZE[0] - 1) / (len(self.frames) - 1) + .5) - bw // 2
+                else:
+                    x = RANGE_BAR_WIDTH + THUMBNAIL_SIZE[0] // 2 - bw // 2
+                gc.DrawBitmap(self.bitmap_arrow_up, x, THUMBNAIL_SIZE[1], bw, bh)
+                gc.DrawBitmap(self.bitmap_arrow_left, RANGE_BAR_WIDTH - bw, THUMBNAIL_SIZE[1], bw, bh)
+                gc.DrawBitmap(self.bitmap_arrow_right, RANGE_BAR_WIDTH + THUMBNAIL_SIZE[0], THUMBNAIL_SIZE[1], bw, bh)
 
     def __on_mouse_down(self, event):
         if self.loading:
@@ -215,11 +244,15 @@ class VideoThumbnail(wx.Panel):
             else:
                 self.dragging = DRAGGING_RANGE
                 self.dragging_dx = x - (self.start_pos + RANGE_BAR_WIDTH)
-        elif self.use_x_arrow and y >= THUMBNAIL_SIZE[1]:
-            if RANGE_BAR_WIDTH <= x < THUMBNAIL_SIZE[0] + RANGE_BAR_WIDTH:
+        elif self.use_x_arrow and y >= THUMBNAIL_SIZE[1] and len(self.frames) > 0:
+            if x < RANGE_BAR_WIDTH:
+                self.dragging = DRAGGING_LEFT_ARROW
+            elif x < THUMBNAIL_SIZE[0] + RANGE_BAR_WIDTH:
                 self.dragging = DRAGGING_X_ARROW
-                self.x_pos = max(0, min(x - RANGE_BAR_WIDTH, THUMBNAIL_SIZE[0] - 1))
+                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - RANGE_BAR_WIDTH) / (THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
                 self.__update_bitmap()
+            else:
+                self.dragging = DRAGGING_RIGHT_ARROW
 
     def __on_mouse_up(self, event):
         if self.loading:
@@ -228,7 +261,15 @@ class VideoThumbnail(wx.Panel):
             if self.dragging in [DRAGGING_LEFT, DRAGGING_RIGHT, DRAGGING_RANGE]:
                 wx.QueueEvent(self, VideoRangeChangedEvent(self.frames, *self.get_frame_range()))
             elif self.dragging == DRAGGING_X_ARROW:
-                wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position()))
+                wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
+            elif self.dragging == DRAGGING_LEFT_ARROW:
+                self.frame_pos = max(0, self.frame_pos - 1)
+                self.__update_bitmap()
+                wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
+            elif self.dragging == DRAGGING_RIGHT_ARROW:
+                self.frame_pos = min(self.frame_pos + 1, len(self.frames) - 1)
+                self.__update_bitmap()
+                wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
 
@@ -248,7 +289,8 @@ class VideoThumbnail(wx.Panel):
             self.end_pos = self.start_pos + w
             self.__update_bitmap()
         elif self.dragging == DRAGGING_X_ARROW:
-            self.x_pos = max(0, min(x - RANGE_BAR_WIDTH, THUMBNAIL_SIZE[0] - 1))
+            if len(self.frames) > 0:
+                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - RANGE_BAR_WIDTH) / (THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
             self.__update_bitmap()
 
     def __on_destroy(self, event):
@@ -266,31 +308,85 @@ class VideoThumbnail(wx.Panel):
         wx.QueueEvent(self, VideoRangeChangedEvent(self.frames, *self.get_frame_range()))
         self.SetCursor(wx.Cursor(wx.CURSOR_DEFAULT))
 
-    def __video_load_worker(self, path):
+    def __video_load_worker(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG'):
+        output_fd = None
         try:
             self.frames.clear()
             probe = Probe(path)
             self.progress_total = probe.n_frames
             self.progress_current = 0
             self.__update_thumbnail()
-            with FrameReader(path) as reader:
-                prev_time = time.time()
-                for i, frame in enumerate(reader.frames()):
-                    if not self.loading:
-                        break
-                    self.progress_current = i + 1
-                    h, w, _ = frame.shape
-                    self.frames.append(cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LANCZOS4))
-                    now = time.time()
-                    if now - prev_time >= 0.25:
-                        prev_time = now
-                        wx.QueueEvent(self, VideoLoadingEvent())
+            if output_path:
+                output_fd = open(output_path, 'w')
+                output_parent_path = output_path.parent
+                output_dir = Path(output_path.stem)
+                os.makedirs(output_parent_path / output_dir, exist_ok=True)
+                if format == 'TIFF':
+                    pix_fmt = 'rgb48'
+                    image_file_ext = '.tif'
                 else:
-                    wx.QueueEvent(self, VideoLoadingEvent())
-                    time.sleep(0.25)
-                    self.loading = None
-                    self.progress_total = 0
-                    self.progress_current = 0
-                    wx.QueueEvent(self, VideoLoadedEvent())
+                    pix_fmt = 'rgb24'
+                    image_file_ext = '.png'
+            else:
+                pix_fmt = 'rgb24'
+            future_list = []
+            def _save_frame(filename, frame):
+                cv2.imwrite(filename, frame)
+            with futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                with FrameReader(path, filter_complex=filter_complex, pix_fmt=pix_fmt) as reader:
+                    prev_time = time.time()
+                    if self.histogram_view:
+                        self.histogram_view.begin_histogram()
+                    for i, frame in enumerate(reader.frames()):
+                        if not self.loading:
+                            break
+                        self.progress_current = i + 1
+                        if rotation == 90:
+                            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                        elif rotation == 180:
+                            frame = cv2.rotate(frame, cv2.ROTATE_180)
+                        elif rotation == 270:
+                            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                        h, w, _ = frame.shape
+                        if output_path:
+                            image_filename = output_dir / f'f{i + 1:05d}{image_file_ext}'
+                            future = executor.submit(_save_frame, output_parent_path / image_filename, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                            future_list.append(future)
+                            if len(future_list) >= MAX_WORKERS:
+                                done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)
+                                future_list = list(not_done)
+                            output_fd.write(f'{str(image_filename)}\n')
+                        if frame.dtype == np.uint16:
+                            frame = (frame / 256).astype(np.uint8)
+                        self.frames.append(cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT))
+                        if self.histogram_view:
+                            self.histogram_view.add_histogram(frame)
+                        now = time.time()
+                        if now - prev_time >= 0.25:
+                            prev_time += 0.25
+                            wx.QueueEvent(self, VideoLoadingEvent())
+                    else:
+                        done, not_done = futures.wait(future_list, return_when=futures.ALL_COMPLETED)
+                        for future in not_done:
+                            if not future.result():
+                                wx.QueueEvent(self, VideoLoadErrorEvent('連続画像ファイルの保存に失敗したファイルがあります。'))
+                        wx.QueueEvent(self, VideoLoadingEvent())
+                        time.sleep(0.25)
+                        self.loading = None
+                        if self.frame_pos is None:
+                            self.frame_pos = len(self.frames) // 2
+                        else:
+                            self.frame_pos = max(0, min(self.frame_pos, len(self.frames) - 1))
+                        self.progress_total = 0
+                        self.progress_current = 0
+                        if self.histogram_view:
+                            self.histogram_view.end_histogram()
+                        wx.QueueEvent(self, VideoLoadedEvent())
         except Exception as e:
-            print(e)
+            if output_fd:
+                output_fd.close()
+            wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
+
+    def __on_video_load_error(self, event):
+        wx.MessageBox(event.message, APP_NAME, wx.OK|wx.ICON_ERROR)
+        self.ensure_stop_loading()

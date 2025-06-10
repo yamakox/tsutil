@@ -9,7 +9,9 @@ from ffio import Probe
 
 # MARK: constants
 
+MARGIN = 16
 TOOL_NAME = '動画のトリミング'
+RAW_SUFFIX = '_RAW'
 
 # MARK: main window
 
@@ -30,7 +32,7 @@ class MainFrame(ToolFrame):
         self.input_file_picker = wx.FilePickerCtrl(
             input_file_panel,
             message='動画ファイルを選択してください。',
-            wildcard='Movie files (*.mp4;*.mov)|*.mp4;*.mov',
+            wildcard=INPUT_MOVIE_FILE_WILDCARD,
             style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
@@ -94,14 +96,14 @@ class MainFrame(ToolFrame):
             return
 
         input_path = Path(self.input_file_picker.GetPath())
-        output_filename = input_path.stem + '_RAW.mp4'
+        output_filename = input_path.stem + RAW_SUFFIX + input_path.suffix
 
         with wx.FileDialog(
             self, 
             'トリミングした動画の保存先ファイル名を入力してください。', 
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
-            wildcard='Movie files (*.mp4;*.mov)|*.mp4;*.mov',
+            wildcard=INPUT_MOVIE_FILE_WILDCARD,
             style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return

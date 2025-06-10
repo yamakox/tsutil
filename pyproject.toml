@@ -21,6 +21,8 @@ dependencies = [
     "numpy (>=2.2.0,<3.0.0)",
     "ffio @ git+https://github.com/yamakox/ffio.git",
     "opencv-python-headless (>=4.11.0,<5.0.0)",
+    "matplotlib (>=3.10.0,<4.0.0)",
+    "numba (>=0.61.0,<0.62.0)",
 ]
 
 [project.scripts]

@@ -1,8 +1,10 @@
 import wx
 import shutil
+import matplotlib.pyplot as plt
 from .common import APP_NAME
 from .main_frame import MainFrame
 
+plt.switch_backend('Agg')
 
 # MARK: app instance
 
