@@ -18,7 +18,7 @@ import re
 
 MARGIN = 10
 TOOL_NAME = '動画から連続画像の展開'
-SETTING_EXTENSION = '.tsuextract.json'
+SETTING_EXTENSION = '.extract.json'
 RAW_SUFFIX = '_RAW'
 
 # MARK: main window
@@ -113,6 +113,7 @@ class MainFrame(ToolFrame):
         self.input_video_thumbnail.Bind(EVT_VIDEO_LOADED, self.__on_video_loaded)
         self.input_video_thumbnail.Bind(EVT_VIDEO_POSITION_CHANGED, self.__on_video_position_changed)
         self.previewer.Bind(EVT_MOUSE_OVER_IMAGE, self.__on_mouse_over_image)
+        self.output_video_thumbnail.Bind(EVT_VIDEO_LOADED, self.__on_video_saved)
         self.Bind(wx.EVT_CLOSE, self.__on_close)
 
     def __make_control_panel(self, parent):
@@ -580,6 +581,10 @@ class MainFrame(ToolFrame):
                 output_path,
                 output_format
             )
+
+    def __on_video_saved(self, event):
+        # 連続画像に展開完了後、video_thumbnailやimage_viewerが消えてしまう場合があるため、再描画を促す
+        self.Refresh()
 
     def __on_folder_button_clicked(self, event):
         path = self.output_filename_text.GetValue()

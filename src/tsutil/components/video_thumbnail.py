@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 import os
 import concurrent.futures as futures
+from numba import njit
 from ffio import FrameReader, Probe
 from .resource import resource
 from ..common import *
@@ -71,6 +72,15 @@ class VideoPositionChangedEvent(wx.ThreadEvent):
         self.frames = frames
         self.position = position
         self.frame_count = frame_count
+
+# MARK: subroutines
+
+@njit
+def _copy_frames(buf, frames, indices, thumb_width, fx, fw):
+    x = 0
+    for i in indices:
+        buf[:, x:x + fw, :] = frames[i][:, fx:fx + fw, :]
+        x += thumb_width
 
 # MARK: main class
 
@@ -182,10 +192,7 @@ class VideoThumbnail(wx.Panel):
         else:
             dwh = -dw // 2
             fx, fw = dwh, thumb_width
-        x = 0
-        for i in indices:
-            self.buf[:, x:x + fw, :] = self.frames[i][:, fx:fx + fw, :]
-            x += thumb_width
+        _copy_frames(self.buf, self.frames, indices, thumb_width, fx, fw)  # numbaで高速化
         self.__update_bitmap()
 
     def __on_paint(self, event):

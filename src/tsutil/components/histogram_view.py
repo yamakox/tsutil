@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 from PIL import Image
-from numba import jit
+from numba import njit
 
 # MARK: constants
 
@@ -11,7 +11,7 @@ MIN_SIZE = (400, 80)
 
 # MARK: functions
 
-@jit
+@njit
 def _compute_hist(frame, hist):
     #hist = np.zeros((256, 3))
     for i in range(frame.shape[0]):
