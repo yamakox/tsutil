@@ -165,8 +165,8 @@ class MainFrame(ToolFrame):
 
         # rotation
         rotation_panel = wx.Panel(panel)
-        rotation_sizer = wx.GridSizer(cols=5, gap=wx.Size(MARGIN, 0))
-        rotation_sizer.Add(wx.StaticText(rotation_panel, label='回転:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        rotation_sizer = wx.GridSizer(cols=5, gap=wx.Size(0, 0))
+        rotation_sizer.Add(wx.StaticText(rotation_panel, label='画像展開時の回転:', style=wx.ALIGN_CENTER|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
         style = wx.RB_GROUP
         rot = str(self.rotation)
         self.rotation_buttons = {}
@@ -176,7 +176,7 @@ class MainFrame(ToolFrame):
             style = 0
             if n == rot:
                 rotation_button.SetValue(True)
-            rotation_sizer.Add(rotation_button, flag=wx.EXPAND)
+            rotation_sizer.Add(rotation_button, flag=wx.ALIGN_CENTER)
             rotation_button.Bind(wx.EVT_RADIOBUTTON, self.__on_rotation_changed)
         rotation_panel.SetSizerAndFit(rotation_sizer)
         sizer.Add(rotation_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)

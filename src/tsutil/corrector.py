@@ -3,6 +3,8 @@ import wx.adv
 from pathlib import Path
 from subprocess import Popen, PIPE
 from pydantic import BaseModel
+import numpy as np
+import cv2
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
@@ -71,8 +73,8 @@ class MainFrame(ToolFrame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.model = CorrectionDataModel()
-        self.deshaking_transform = None
-        self.transform = None
+        self.deshaking_transform = np.eye(3)
+        self.transform = np.eye(3)
         self.base_frame = None
         self.sample_frame = None
 
@@ -129,9 +131,9 @@ class MainFrame(ToolFrame):
         # shaking detection condition
         shaking_detection_panel = wx.Panel(panel)
         shaking_detection_sizer = wx.BoxSizer(orient=wx.HORIZONTAL)
-        shaking_detection_sizer.Add(wx.StaticText(shaking_detection_panel, label='ブレ補正の可否:'), flag=wx.EXPAND|wx.RIGHT, border=MARGIN)
-        self.shaking_detection_condition_label = wx.StaticText(shaking_detection_panel, label=self.model.get_shaking_detection_condition())
-        shaking_detection_sizer.Add(self.shaking_detection_condition_label, flag=wx.EXPAND)
+        shaking_detection_sizer.Add(wx.StaticText(shaking_detection_panel, label='ブレ補正の可否:'), flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=4)
+        self.shaking_detection_condition_label = wx.StaticText(shaking_detection_panel, label=self.model.get_shaking_detection_condition(), style=wx.BORDER_SIMPLE)
+        shaking_detection_sizer.Add(self.shaking_detection_condition_label, flag=wx.ALIGN_CENTER_VERTICAL)
         shaking_detection_panel.SetSizerAndFit(shaking_detection_sizer)
         sizer.Add(shaking_detection_panel, flag=wx.EXPAND|wx.BOTTOM, border=4)
         row += 1
@@ -242,7 +244,7 @@ class MainFrame(ToolFrame):
         correction_sizer.AddGrowableCol(0)
         rotation_panel = wx.Panel(correction_panel)
         rotation_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(4, 0))
-        rotation_sizer.Add(wx.StaticText(rotation_panel, label='ブレ補正後の回転補正:', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL)
+        rotation_sizer.Add(wx.StaticText(rotation_panel, label='基準画像の回転を補正する角度:', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL)
         self.rotation = wx.SpinCtrlDouble(rotation_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
         rotation_sizer.Add(self.rotation, flag=wx.EXPAND)
         rotation_panel.SetSizerAndFit(rotation_sizer)
@@ -268,6 +270,24 @@ class MainFrame(ToolFrame):
 
         panel.SetSizerAndFit(sizer)
         return panel
+
+    def __set_base_image_viewer(self):
+        image_catalog = self.input_video_thumbnail.get_image_catalog()
+        if image_catalog is None or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
+            return
+        self.base_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.base_frame_pos])), cv2.COLOR_BGR2RGB)
+        frame = (self.base_frame // 256).astype(np.uint8)  if self.base_frame.dtype == np.uint16 else self.base_frame
+        self.base_image_viewer.set_image(frame)
+
+    def __set_sample_image_viewer(self):
+        image_catalog = self.input_video_thumbnail.get_image_catalog()
+        if image_catalog is None or self.model.sample_frame_pos is None or self.model.sample_frame_pos >= len(image_catalog):
+            return
+        self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos])), cv2.COLOR_BGR2RGB)
+        frame = (self.sample_frame // 256).astype(np.uint8)  if self.sample_frame.dtype == np.uint16 else self.sample_frame
+
+        self.deshake_image_viewer.set_image(frame)
+        self.clip_image_viewer.set_image(frame)
 
 
 
@@ -303,7 +323,14 @@ class MainFrame(ToolFrame):
         self.__load_image_catalog()
 
     def __on_video_loaded(self, event):
-        pass
+        position = self.input_video_thumbnail.get_frame_position()
+        if self.model.base_frame_pos is None:
+            self.model.base_frame_pos = position
+        if self.model.sample_frame_pos is None:
+            self.model.sample_frame_pos = position
+        self.__set_base_image_viewer()
+        self.__set_sample_image_viewer()
+        event.Skip()
 
     def __on_video_position_changed(self, event):
         pass

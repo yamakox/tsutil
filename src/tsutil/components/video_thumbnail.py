@@ -183,6 +183,8 @@ class VideoThumbnail(wx.Panel):
         return self.frame_pos
 
     def get_image_catalog(self):
+        if self.loading:
+            return []
         return self.image_catalog
 
     def __update_bitmap(self):
@@ -392,7 +394,7 @@ class VideoThumbnail(wx.Panel):
                             output_fd.write(f'{str(image_filename)}\n')
                         frame = cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT)
                         if frame.dtype == np.uint16:
-                            frame = (frame / 256).astype(np.uint8)
+                            frame = (frame // 256).astype(np.uint8)
                         self.frames.append(frame)
                         if self.histogram_view:
                             self.histogram_view.add_histogram(frame)
