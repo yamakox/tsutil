@@ -28,6 +28,7 @@ DRAGGING_LEFT_ARROW = 5
 DRAGGING_RIGHT_ARROW = 6
 
 MAX_WORKERS = 8
+MAX_WORKERS2 = 16
 
 # MARK: events
 
@@ -98,6 +99,7 @@ class VideoThumbnail(wx.Panel):
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
         self.frames = []
+        self.image_catalog = []
         self.progress_total = 0
         self.progress_current = 0
         self.buf = np.ones((THUMBNAIL_SIZE[1], THUMBNAIL_SIZE[0], 3), dtype=np.uint8) * 192
@@ -116,7 +118,7 @@ class VideoThumbnail(wx.Panel):
 
         self.Bind(EVT_VIDEO_LOADING, self.__on_video_loading)
         self.Bind(EVT_VIDEO_LOADED, self.__on_video_loaded)
-        self.Bind(EVT_VIDEO_LOAD_ERROR, self.__on_video_load_error)
+        self.Bind(EVT_VIDEO_LOAD_ERROR, self.__on_load_error)
 
     def set_histogram_view(self, histogram_view):
         self.histogram_view = histogram_view
@@ -128,16 +130,27 @@ class VideoThumbnail(wx.Panel):
         self.dragging_dx = 0
         self.buf[:] = 192
         self.frames.clear()
+        self.image_catalog.clear()
         self.progress_total = 0
         self.progress_current = 0
         self.__update_bitmap()
 
-    def load_video(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG'):
+    def load_video(self, path: Path, rotation=0, filter_complex=None, output_path: Path=None, format='PNG'):
         self.ensure_stop_loading()
         self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
         self.loading = threading.Thread(
             target=self.__video_load_worker, 
             args=(path, rotation, filter_complex, output_path, format), 
+            daemon=True,
+        )
+        self.loading.start()
+
+    def load_image_catalog(self, path: Path, transform=None, clip=None, output_path: Path=None):
+        self.ensure_stop_loading()
+        self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
+        self.loading = threading.Thread(
+            target=self.__image_catalog_load_worker, 
+            args=(path, transform, clip, output_path), 
             daemon=True,
         )
         self.loading.start()
@@ -168,6 +181,9 @@ class VideoThumbnail(wx.Panel):
 
     def get_frame_position(self):
         return self.frame_pos
+
+    def get_image_catalog(self):
+        return self.image_catalog
 
     def __update_bitmap(self):
         self.bitmap.CopyFromBuffer(self.buf.tobytes())
@@ -260,6 +276,7 @@ class VideoThumbnail(wx.Panel):
                 self.__update_bitmap()
             else:
                 self.dragging = DRAGGING_RIGHT_ARROW
+        event.Skip()
 
     def __on_mouse_up(self, event):
         if self.loading:
@@ -279,6 +296,7 @@ class VideoThumbnail(wx.Panel):
                 wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
+        event.Skip()
 
     def __on_mouse_move(self, event):
         if self.loading or not event.Dragging() or not event.LeftIsDown():
@@ -299,6 +317,7 @@ class VideoThumbnail(wx.Panel):
             if len(self.frames) > 0:
                 self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - RANGE_BAR_WIDTH) / (THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
             self.__update_bitmap()
+        event.Skip()
 
     def __on_destroy(self, event):
         self.ensure_stop_loading()
@@ -306,6 +325,7 @@ class VideoThumbnail(wx.Panel):
 
     def __on_video_loading(self, event):
         self.__update_thumbnail()
+        event.Skip()
 
     def __on_video_loaded(self, event):
         if self.loading:
@@ -314,6 +334,13 @@ class VideoThumbnail(wx.Panel):
         self.__update_thumbnail()
         wx.QueueEvent(self, VideoRangeChangedEvent(self.frames, *self.get_frame_range()))
         self.SetCursor(wx.Cursor(wx.CURSOR_DEFAULT))
+        self.Refresh()
+        event.Skip()
+
+    def __on_load_error(self, event):
+        wx.MessageBox(event.message, APP_NAME, wx.OK|wx.ICON_ERROR)
+        self.ensure_stop_loading()
+        event.Skip()
 
     def __video_load_worker(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG'):
         output_fd = None
@@ -363,9 +390,10 @@ class VideoThumbnail(wx.Panel):
                                 done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)
                                 future_list = list(not_done)
                             output_fd.write(f'{str(image_filename)}\n')
+                        frame = cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT)
                         if frame.dtype == np.uint16:
                             frame = (frame / 256).astype(np.uint8)
-                        self.frames.append(cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT))
+                        self.frames.append(frame)
                         if self.histogram_view:
                             self.histogram_view.add_histogram(frame)
                         now = time.time()
@@ -374,9 +402,9 @@ class VideoThumbnail(wx.Panel):
                             wx.QueueEvent(self, VideoLoadingEvent())
                     else:
                         done, not_done = futures.wait(future_list, return_when=futures.ALL_COMPLETED)
-                        for future in not_done:
-                            if not future.result():
-                                wx.QueueEvent(self, VideoLoadErrorEvent('連続画像ファイルの保存に失敗したファイルがあります。'))
+                        failures = [future for future in not_done if not future.result()]
+                        if failures:
+                            wx.QueueEvent(self, VideoLoadErrorEvent('連続画像ファイルの保存に失敗したファイルがあります。'))
                         wx.QueueEvent(self, VideoLoadingEvent())
                         time.sleep(0.25)
                         self.loading = None
@@ -394,6 +422,86 @@ class VideoThumbnail(wx.Panel):
                 output_fd.close()
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
 
-    def __on_video_load_error(self, event):
-        wx.MessageBox(event.message, APP_NAME, wx.OK|wx.ICON_ERROR)
-        self.ensure_stop_loading()
+    def __image_catalog_load_worker(self, path, transform=None, clip=None, output_path: Path=None):
+        output_fd = None
+        try:
+            self.frames.clear()
+            parent_path = path.parent
+            with open(path, 'r') as reader:
+                self.image_catalog = [parent_path / line.rstrip() for line in reader]
+            self.progress_total = len(self.image_catalog)
+            self.progress_current = 0
+            self.__update_thumbnail()
+            if output_path:
+                output = dict(
+                    fd = open(output_path, 'w'), 
+                    parent_path = output_path.parent, 
+                    dir_name = Path(output_path.stem), 
+                )
+                os.makedirs(output.parent_path / output.dir_name, exist_ok=True)
+            else:
+                output = {}
+            future_list = []
+            indexed_frame = {}
+            def _load_and_save_frame(indexed_frame, index, image_path, output, transform, clip):
+                frame = cv2.imread(str(image_path))
+                h, w, _ = frame.shape
+                if output:
+                    image_filename = output.dir_name / image_path.name
+                    if transform:
+                        frame = cv2.warpPerspective(
+                            frame, 
+                            transform, 
+                            (frame.shape[1], frame.shape[0]), 
+                            flags=cv2.INTER_AREA
+                        )
+                    if clip:
+                        frame = frame[clip[1]:clip[3], clip[0]:clip[2], :]
+                    cv2.imwrite(output.parent_path / image_filename, frame)
+                    output_fd.write(f'{str(image_filename)}\n')
+                frame = cv2.cvtColor(cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT), cv2.COLOR_BGR2RGB)
+                if frame.dtype == np.uint16:
+                    frame = (frame / 256).astype(np.uint8)
+                indexed_frame[index] = frame
+                if self.histogram_view:
+                    self.histogram_view.add_histogram(frame)
+            with futures.ThreadPoolExecutor(max_workers=MAX_WORKERS2) as executor:
+                prev_time = time.time()
+                if self.histogram_view:
+                    self.histogram_view.begin_histogram()
+                for i, image_path in enumerate(self.image_catalog):
+                    if not self.loading:
+                        break
+                    self.progress_current = i + 1
+                    future = executor.submit(_load_and_save_frame, indexed_frame, i, image_path, output, transform, clip)
+                    future_list.append(future)
+                    if len(future_list) >= MAX_WORKERS2:
+                        done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)
+                        future_list = list(not_done)
+                    now = time.time()
+                    if now - prev_time >= 0.25:
+                        prev_time += 0.25
+                        self.frames = [indexed_frame[i] for i in sorted(indexed_frame.keys())]
+                        wx.QueueEvent(self, VideoLoadingEvent())
+                else:
+                    done, not_done = futures.wait(future_list, return_when=futures.ALL_COMPLETED)
+                    failures = [future for future in not_done if not future.result()]
+                    if failures:
+                        wx.QueueEvent(self, VideoLoadErrorEvent('連続画像ファイルの入出力処理に失敗したファイルがあります。'))
+                    self.frames = [indexed_frame[i] for i in sorted(indexed_frame.keys())]
+                    wx.QueueEvent(self, VideoLoadingEvent())
+                    time.sleep(0.25)
+                    self.loading = None
+                    if self.frame_pos is None or self.frame_pos > len(self.frames) - 1:
+                        self.frame_pos = len(self.frames) // 2
+                    else:
+                        self.frame_pos = max(0, min(self.frame_pos, len(self.frames) - 1))
+                    self.progress_total = 0
+                    self.progress_current = 0
+                    if self.histogram_view:
+                        self.histogram_view.end_histogram()
+                    wx.QueueEvent(self, VideoLoadedEvent())
+        except Exception as e:
+            if output_fd:
+                output_fd.close()
+            wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))

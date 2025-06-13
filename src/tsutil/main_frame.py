@@ -2,7 +2,7 @@ import wx
 import wx.adv
 import sys
 from .common import *
-from . import trimmer, extractor
+from . import trimmer, extractor, corrector
 from typing import Callable
 from importlib.metadata import version, metadata
 
@@ -60,9 +60,5 @@ class MainFrame(wx.Frame):
         frame.Show()
 
     def __launch_corrector(self, event):
-        wx.MessageBox(
-            "画像のブレ・傾き・歪みの補正",
-            "画像のブレ・傾き・歪みの補正",
-            wx.OK | wx.ICON_INFORMATION,
-            self,
-        )
+        frame = corrector.MainFrame(self)
+        frame.Show()

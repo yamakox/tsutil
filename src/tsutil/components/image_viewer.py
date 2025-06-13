@@ -7,7 +7,7 @@ from .resource import resource
 
 # MARK: constants
 
-MIN_SIZE = (400, 400)
+MIN_SIZE = (180, 320)
 SCROLL_BAR_SIZE = 12
 DRAGGING_NONE = 0
 DRAGGING_PREVIEW = 1
@@ -199,7 +199,7 @@ class ImageViewer(wx.Panel):
     def __on_size(self, event):
         size = event.GetSize()
         w, h = size.GetWidth(), size.GetHeight()
-        self.buf = np.empty((h - SCROLL_BAR_SIZE, w - SCROLL_BAR_SIZE, 3), dtype=np.uint8)
+        self.buf = np.zeros((h - SCROLL_BAR_SIZE, w - SCROLL_BAR_SIZE, 3), dtype=np.uint8)
         self.bitmap = wx.Bitmap.FromBuffer(w - SCROLL_BAR_SIZE, h - SCROLL_BAR_SIZE, self.buf.tobytes())
         self.regions = {
             'preview': wx.Rect(0, 0, self.buf.shape[1], self.buf.shape[0]), 
@@ -213,6 +213,8 @@ class ImageViewer(wx.Panel):
         self.__fire_mouse_over_image()
 
     def __on_paint(self, event):
+        if self.buf is None:
+            return
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:

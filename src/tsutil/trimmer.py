@@ -32,7 +32,7 @@ class MainFrame(ToolFrame):
         self.input_file_picker = wx.FilePickerCtrl(
             input_file_panel,
             message='動画ファイルを選択してください。',
-            wildcard=INPUT_MOVIE_FILE_WILDCARD,
+            wildcard=MOVIE_FILE_WILDCARD,
             style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
@@ -50,12 +50,12 @@ class MainFrame(ToolFrame):
         # trimming button
         trimming_button = wx.Button(panel, label='トリミングした動画ファイルを作成する...')
         trimming_button.Bind(wx.EVT_BUTTON, self.__on_trimming_button_clicked)
-        sizer.Add(trimming_button, flag=wx.ALIGN_CENTER|wx.ALL, border=16)
+        sizer.Add(trimming_button, flag=wx.ALIGN_CENTER|wx.ALL, border=MARGIN)
 
         # output video thumbnail
         self.output_video_thumbnail = VideoThumbnail(panel)
         sizer.Add(self.output_video_thumbnail, flag=wx.ALIGN_CENTER)
-        sizer.Add(wx.StaticText(panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。'), flag=wx.ALIGN_CENTER)
+        sizer.Add(wx.StaticText(panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。こちらで目視確認してください。'), flag=wx.ALIGN_CENTER)
 
         # output file panel
         output_file_panel = wx.Panel(panel)
@@ -78,24 +78,28 @@ class MainFrame(ToolFrame):
         self.input_video_thumbnail.Bind(EVT_VIDEO_RANGE_CHANGED, self.__on_video_range_changed)
 
     def __on_input_file_changed(self, event):
-        path = Path(self.input_file_picker.GetPath())
-        if not path.exists():
+        path = get_path(self.input_file_picker.GetPath())
+        if not path_exists(path):
+            event.Skip()
             return
         self.input_video_thumbnail.clear()
         self.preview_video_thumbnail.clear()
         self.output_video_thumbnail.clear()
         self.output_filename_text.SetValue('')
         self.input_video_thumbnail.load_video(path)
+        event.Skip()
 
     def __on_video_range_changed(self, event):
         self.preview_video_thumbnail.copy_frames(event.frames[event.start:event.end])
+        event.Skip()
 
     def __on_trimming_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
             wx.MessageBox('トリミングする動画が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
             return
 
-        input_path = Path(self.input_file_picker.GetPath())
+        input_path = get_path(self.input_file_picker.GetPath())
         output_filename = input_path.stem + RAW_SUFFIX + input_path.suffix
 
         with wx.FileDialog(
@@ -103,11 +107,11 @@ class MainFrame(ToolFrame):
             'トリミングした動画の保存先ファイル名を入力してください。', 
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
-            wildcard=INPUT_MOVIE_FILE_WILDCARD,
+            wildcard=MOVIE_FILE_WILDCARD,
             style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
-            output_path = Path(fileDialog.GetPath())
+            output_path = get_path(fileDialog.GetPath())
             self.output_filename_text.SetValue(str(output_path))
 
             probe = Probe(input_path)
@@ -123,14 +127,15 @@ class MainFrame(ToolFrame):
             stdout_data, stderr_data = process.communicate()
             if process.returncode != 0:
                 wx.MessageBox(f'トリミングに失敗しました:\n{stderr_data}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
+                event.Skip()
                 return
             self.output_video_thumbnail.load_video(output_path)
+        event.Skip()
 
     def __on_folder_button_clicked(self, event):
-        path = self.output_filename_text.GetValue()
-        if not path:
-            return
-        path = Path(path)
-        if not path.exists():
+        path = get_path(self.output_filename_text.GetValue())
+        if not path_exists(path):
+            event.Skip()
             return
         wx.LaunchDefaultApplication(str(path.parent))
+        event.Skip()

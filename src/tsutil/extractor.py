@@ -44,7 +44,7 @@ class MainFrame(ToolFrame):
         self.input_file_picker = wx.FilePickerCtrl(
             input_file_panel,
             message='動画ファイルを選択してください。', 
-            wildcard=INPUT_MOVIE_FILE_WILDCARD, 
+            wildcard=MOVIE_FILE_WILDCARD, 
             style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
@@ -56,7 +56,7 @@ class MainFrame(ToolFrame):
         # input video thumbnail 
         input_video_panel = wx.Panel(panel)
         input_video_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
-        input_video_sizer.Add(wx.StaticText(input_video_panel, label='赤い▲をドラッグして、動画のプレビュー位置を指定できます。'), flag=wx.ALIGN_CENTER)
+        input_video_sizer.Add(wx.StaticText(input_video_panel, label='赤い▲をドラッグして、画像のフレームを指定できます。'), flag=wx.ALIGN_CENTER)
         self.input_video_thumbnail = VideoThumbnail(input_video_panel, use_x_arrow=True)
         input_video_sizer.Add(self.input_video_thumbnail, flag=wx.ALIGN_CENTER)
         input_video_panel.SetSizerAndFit(input_video_sizer)
@@ -113,7 +113,6 @@ class MainFrame(ToolFrame):
         self.input_video_thumbnail.Bind(EVT_VIDEO_LOADED, self.__on_video_loaded)
         self.input_video_thumbnail.Bind(EVT_VIDEO_POSITION_CHANGED, self.__on_video_position_changed)
         self.previewer.Bind(EVT_MOUSE_OVER_IMAGE, self.__on_mouse_over_image)
-        self.output_video_thumbnail.Bind(EVT_VIDEO_LOADED, self.__on_video_saved)
         self.Bind(wx.EVT_CLOSE, self.__on_close)
 
     def __make_control_panel(self, parent):
@@ -304,8 +303,8 @@ class MainFrame(ToolFrame):
         return panel
     
     def __set_previewer(self, position, filter_complex=None):
-        path = Path(self.input_file_picker.GetPath())
-        if not str(path) or not path.exists():
+        path = get_path(self.input_file_picker.GetPath())
+        if not path_exists(path):
             return
         self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
         try:
@@ -413,8 +412,8 @@ class MainFrame(ToolFrame):
         return filter_complex
 
     def __make_setting_file_path(self):
-        path = Path(self.input_file_picker.GetPath())
-        if not path.exists():
+        path = get_path(self.input_file_picker.GetPath())
+        if not path_exists(path):
             return None
         return path.with_suffix(SETTING_EXTENSION)
 
@@ -443,9 +442,7 @@ class MainFrame(ToolFrame):
 
     def __load_setting(self):
         path = self.__make_setting_file_path()
-        if not path:
-            return
-        if not path.exists():
+        if not path_exists(path):
             return
         def _g(setting, name, default_value):
             if name not in setting:
@@ -473,8 +470,8 @@ class MainFrame(ToolFrame):
         self.__update_color_adjustment_controls()
 
     def __load_video(self):
-        path = Path(self.input_file_picker.GetPath())
-        if not path.exists():
+        path = get_path(self.input_file_picker.GetPath())
+        if not path_exists(path):
             return
         self.probe = Probe(path)
         self.input_video_thumbnail.clear()
@@ -487,6 +484,8 @@ class MainFrame(ToolFrame):
         self.info_r.SetLabel('')
         self.info_g.SetLabel('')
         self.info_b.SetLabel('')
+        self.output_video_thumbnail.clear()
+        self.output_filename_text.SetValue('')
         self.__load_setting()
         self.input_video_thumbnail.load_video(path, self.rotation, self.__make_filter_complex())
 
@@ -504,6 +503,7 @@ class MainFrame(ToolFrame):
     def __on_video_position_changed(self, event):
         self.__set_previewer(event.position, self.__make_filter_complex())
         self.info_frame.SetLabel(f'{event.position}/{event.frame_count}')
+        event.Skip()
 
     def __on_mouse_over_image(self, event):
         x, y = event.image_x, event.image_y
@@ -526,20 +526,25 @@ class MainFrame(ToolFrame):
         self.rotation = int(event.GetEventObject().GetName())
         frame = self.__rotate_frame(self.frame)
         self.previewer.set_image(frame)
+        event.Skip()
 
     def __on_color_adjustment_control_changed(self, event):
         self.__update_color_adjustment_controls()
         self.color_control_changed_time = time.time()
+        event.Skip()
 
     def __on_color_adjustment_changed(self, event):
         self.color_control_changed_time = time.time()
+        event.Skip()
 
     def __on_reload_button_clicked(self, event):
         self.__save_setting()
         self.__load_video()
+        event.Skip()
 
     def __on_color_control_timer(self, event):
         if self.color_control_changed_time is None:
+            event.Skip()
             return
         if time.time() - self.color_control_changed_time >= 1.0:
             self.color_control_changed_time = None
@@ -547,6 +552,7 @@ class MainFrame(ToolFrame):
                 position = self.input_video_thumbnail.get_frame_position()
                 self.__set_previewer(position, self.__make_filter_complex())
                 self.__save_setting()
+        event.Skip()
 
     def __on_close(self, event):
         self.color_control_timer.Stop()
@@ -556,10 +562,11 @@ class MainFrame(ToolFrame):
     def __on_save_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
             wx.MessageBox('連続画像を取り出す動画が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
             return
 
         output_format = 'TIFF' if self.format_tiff_button.GetValue() else 'PNG'
-        input_path = Path(self.input_file_picker.GetPath())
+        input_path = get_path(self.input_file_picker.GetPath())
         output_filename = input_path.stem.removesuffix(RAW_SUFFIX) + '_' + output_format + '.txt'
 
         with wx.FileDialog(
@@ -567,12 +574,12 @@ class MainFrame(ToolFrame):
             '保存先の連続画像のカタログファイル名を入力してください。(連続画像のディレクトリ名にもなります)', 
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
-            wildcard='Image catalog files (*.txt;*.lst)|*.txt;*.lst',
+            wildcard=IMAGE_CATALOG_FILE_WILDCARD,
             style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             self.__save_setting()
-            output_path = Path(fileDialog.GetPath())
+            output_path = get_path(fileDialog.GetPath())
             self.output_filename_text.SetValue(str(output_path))
             self.output_video_thumbnail.load_video(
                 input_path, 
@@ -581,16 +588,12 @@ class MainFrame(ToolFrame):
                 output_path,
                 output_format
             )
-
-    def __on_video_saved(self, event):
-        # 連続画像に展開完了後、video_thumbnailやimage_viewerが消えてしまう場合があるため、再描画を促す
-        self.Refresh()
+        event.Skip()
 
     def __on_folder_button_clicked(self, event):
-        path = self.output_filename_text.GetValue()
-        if not path:
-            return
-        path = Path(path)
-        if not path.exists():
+        path = get_path(self.output_filename_text.GetValue())
+        if not path_exists(path):
+            event.Skip()
             return
         wx.LaunchDefaultApplication(str(path.parent))
+        event.Skip()
