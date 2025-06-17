@@ -49,16 +49,15 @@ class ImageViewer(wx.Panel):
         self.bitmap_arrow_down = resource.get_bitmap_arrow_down()
         self.bitmap_arrow_right = resource.get_bitmap_arrow_right()
 
-        self.Bind(wx.EVT_PAINT, self.__on_paint)
-        self.Bind(wx.EVT_SIZE, self.__on_size)
-        self.Bind(wx.EVT_WINDOW_DESTROY, self.__on_destroy)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.Bind(wx.EVT_SIZE, self.on_size)
 
-        self.Bind(wx.EVT_LEFT_DOWN, self.__on_mouse_down)
-        self.Bind(wx.EVT_LEFT_UP, self.__on_mouse_up)
-        self.Bind(wx.EVT_MOTION, self.__on_mouse_move)
-        self.Bind(wx.EVT_LEAVE_WINDOW, self.__on_mouse_leave)
-        self.Bind(wx.EVT_MOUSEWHEEL, self.__on_mouse_wheel)
-        self.Bind(wx.EVT_LEFT_DCLICK, self.__on_mouse_double_click)
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_mouse_down)
+        self.Bind(wx.EVT_LEFT_UP, self.on_mouse_up)
+        self.Bind(wx.EVT_MOTION, self.on_mouse_move)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.on_mouse_leave)
+        self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
+        self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
 
     def clear(self):
         self.image = None
@@ -70,7 +69,7 @@ class ImageViewer(wx.Panel):
         self.dragging_x = 0
         self.dragging_y = 0
         self.dragging_image_ox = 0
-        self.dragging_image_y = 0
+        self.dragging_image_oy = 0
         self.__update_preview()
 
     def set_image(self, image):
@@ -84,29 +83,51 @@ class ImageViewer(wx.Panel):
         self.image = image.copy()
         self.__set_min_zoom_ratio()
         self.__zoom_and_update_preview()
-        self.__fire_mouse_over_image()
+        self.fire_mouse_over_image()
 
     def get_image(self):
         return self.image
 
-    def get_image_position(self, mouse_pos=None):
-        x, y = self.__get_image_position(mouse_pos=mouse_pos)
-        if x is None:
-            return None, None
-        _x, _y = int(x), int(y)
-        return _x, _y
+    def get_image_position(self, mouse_pos: tuple[int, int]|None=None) -> tuple[int, int]|tuple[None, None]:
+        x, y = self.get_image_precise_position(mouse_pos=mouse_pos)
+        if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
+            return int(x), int(y)
+        return None, None
     
-    def __get_image_position(self, mouse_pos=None):
+    def get_image_precise_position(self, mouse_pos: tuple[int, int]|None=None) -> tuple[int, int]|tuple[None, None]:
         if self.image is None:
             return None, None
         x, y = self.image_ox, self.image_oy
-        ox = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
-        oy = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
-        x += (mouse_pos[0] - ox) / self.zoom_ratio
-        y += (mouse_pos[1] - oy) / self.zoom_ratio
-        if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
-            return x, y
-        return None, None
+        v_ox = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
+        v_oy = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
+        if mouse_pos is not None:
+            x += (mouse_pos[0] - v_ox) / self.zoom_ratio
+            y += (mouse_pos[1] - v_oy) / self.zoom_ratio
+        return x, y
+
+    def set_image_zoom_position(self, image_ox, image_oy, zoom):
+        self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
+        self.image_ox = image_ox
+        self.image_oy = image_oy
+        self.__zoom_and_update_preview()
+
+    def get_view_position(self, x: float, y: float) -> tuple[int, int]:
+        ox, oy = self.image_ox, self.image_oy
+        v_x = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
+        v_y = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
+        v_x += (x - ox) * self.zoom_ratio
+        v_y += (y - oy) * self.zoom_ratio
+        return int(v_x + .5), int(v_y + .5)
+
+    def get_view_rect(self, left: float, top: float, right: float, bottom: float) -> tuple[int, int, int, int]:
+        ox, oy = self.image_ox, self.image_oy
+        v_x = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
+        v_y = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
+        v_x0 = v_x + (left - ox) * self.zoom_ratio
+        v_y0 = v_y + (top - oy) * self.zoom_ratio
+        v_x1 = v_x + (right - ox) * self.zoom_ratio
+        v_y1 = v_y + (bottom - oy) * self.zoom_ratio
+        return int(v_x0 + .5), int(v_y0 + .5), int(v_x1 + .5), int(v_y1 + .5)
 
     def __set_min_zoom_ratio(self):
         if self.buf is not None and self.image is not None:
@@ -187,7 +208,7 @@ class ImageViewer(wx.Panel):
         self.bitmap.CopyFromBuffer(self.buf.tobytes())
         self.Refresh()
 
-    def __fire_mouse_over_image(self, x = None, y = None):
+    def fire_mouse_over_image(self, x = None, y = None):
         if self.image is None:
             wx.QueueEvent(self, MouseOverImageEvent())
         elif x is None:
@@ -196,7 +217,7 @@ class ImageViewer(wx.Panel):
             x, y = self.get_image_position(mouse_pos=(x, y))
             wx.QueueEvent(self, MouseOverImageEvent(x, y))
 
-    def __on_size(self, event):
+    def on_size(self, event):
         size = event.GetSize()
         w, h = size.GetWidth(), size.GetHeight()
         self.buf = np.zeros((h - SCROLL_BAR_SIZE, w - SCROLL_BAR_SIZE, 3), dtype=np.uint8)
@@ -210,9 +231,9 @@ class ImageViewer(wx.Panel):
             self.__update_preview()
         else:
             self.__zoom_and_update_preview()
-        self.__fire_mouse_over_image()
+        self.fire_mouse_over_image()
 
-    def __on_paint(self, event):
+    def on_paint(self, event):
         if self.buf is None:
             return
         dc = wx.PaintDC(self)
@@ -240,7 +261,7 @@ class ImageViewer(wx.Panel):
                 vsl_max = min(h, int(oy + vsl * .5 + .5))
                 gc.DrawRectangle(w, vsl_min, SCROLL_BAR_SIZE, vsl_max - vsl_min)
 
-    def __on_mouse_down(self, event):
+    def on_mouse_down(self, event):
         if self.image is None:
             return
         x = event.GetX()
@@ -283,7 +304,7 @@ class ImageViewer(wx.Panel):
                     self.dragging_y = 0
                     self.__update_preview()
 
-    def __on_mouse_up(self, event):
+    def on_mouse_up(self, event):
         if self.image is None:
             return
         x = event.GetX()
@@ -292,52 +313,52 @@ class ImageViewer(wx.Panel):
         self.dragging_x = 0
         self.dragging_y = 0
         self.dragging_image_ox = 0
-        self.dragging_image_y = 0
+        self.dragging_image_oy = 0
         if not self.regions['preview'].Contains(x, y):
-            self.__fire_mouse_over_image()
+            self.fire_mouse_over_image()
 
-    def __on_mouse_move(self, event):
+    def on_mouse_move(self, event):
         if self.image is None:
             return
         x = event.GetX()
         y = event.GetY()
-        if event.Dragging() and event.LeftIsDown():
-            if self.dragging == DRAGGING_PREVIEW:
-                dx, dy = (x - self.dragging_x) / self.zoom_ratio, (y - self.dragging_y) / self.zoom_ratio
-                self.image_ox = self.dragging_image_ox - dx
-                self.image_oy = self.dragging_image_oy - dy
-                self.__update_preview()
-            elif self.dragging == DRAGGING_HSCROLL:
-                r = self.regions['hscroll']
-                ix = (x - r.GetLeft()) / r.GetWidth() * self.image.shape[1]
-                self.image_ox = ix - self.dragging_x
-                self.__update_preview()
-            elif self.dragging == DRAGGING_VSCROLL:
-                r = self.regions['vscroll']
-                iy = (y - r.GetTop()) / r.GetHeight() * self.image.shape[0]
-                self.image_oy = iy - self.dragging_y
-                self.__update_preview()
-        self.__fire_mouse_over_image(x, y)
+        if self.dragging == DRAGGING_PREVIEW:
+            dx, dy = (x - self.dragging_x) / self.zoom_ratio, (y - self.dragging_y) / self.zoom_ratio
+            self.image_ox = self.dragging_image_ox - dx
+            self.image_oy = self.dragging_image_oy - dy
+            self.__update_preview()
+            self.fire_mouse_over_image(x, y)
+        elif self.dragging == DRAGGING_HSCROLL:
+            r = self.regions['hscroll']
+            ix = (x - r.GetLeft()) / r.GetWidth() * self.image.shape[1]
+            self.image_ox = ix - self.dragging_x
+            self.__update_preview()
+            self.fire_mouse_over_image(x, y)
+        elif self.dragging == DRAGGING_VSCROLL:
+            r = self.regions['vscroll']
+            iy = (y - r.GetTop()) / r.GetHeight() * self.image.shape[0]
+            self.image_oy = iy - self.dragging_y
+            self.__update_preview()
+            self.fire_mouse_over_image(x, y)
 
-    def __on_mouse_leave(self, event):
+    def on_mouse_leave(self, event):
         if self.image is None:
             return
-        self.__fire_mouse_over_image()
+        self.fire_mouse_over_image()
 
-    def __on_mouse_wheel(self, event):
+    def on_mouse_wheel(self, event):
         if self.image is None:
             return
         x = event.GetX()
         y = event.GetY()
-        self.zoom_ratio *= 1.0 + event.GetWheelRotation() * .001
-        if self.zoom_ratio < self.min_zoom_ratio:
-            self.zoom_ratio = self.min_zoom_ratio
-        elif self.zoom_ratio > 2.0:
-            self.zoom_ratio = 2.0
+        zoom = self.zoom_ratio
+        zoom *= 1.0 + event.GetWheelRotation() * .001
+        #print(f'{event.GetWheelRotation()=} {self.zoom_ratio=} {self.min_zoom_ratio=}')
+        self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
         self.__zoom_and_update_preview()
-        self.__fire_mouse_over_image(x, y)
+        self.fire_mouse_over_image(x, y)
 
-    def __on_mouse_double_click(self, event):
+    def on_mouse_double_click(self, event):
         if self.image is None:
             return
         x = event.GetX()
@@ -345,7 +366,4 @@ class ImageViewer(wx.Panel):
         if self.regions['preview'].Contains(x, y):
             self.zoom_ratio = 1.0 if self.zoom_ratio != 1.0 else self.min_zoom_ratio
             self.__zoom_and_update_preview()
-            self.__fire_mouse_over_image(x, y)
-
-    def __on_destroy(self, event):
-        event.Skip()
+            self.fire_mouse_over_image(x, y)

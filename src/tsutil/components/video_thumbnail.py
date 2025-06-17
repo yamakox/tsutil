@@ -182,6 +182,12 @@ class VideoThumbnail(wx.Panel):
     def get_frame_position(self):
         return self.frame_pos
 
+    def set_frame_position(self, frame_pos):
+        if self.loading or not self.frames:
+            return
+        self.frame_pos = frame_pos
+        self.Refresh()
+
     def get_image_catalog(self):
         if self.loading:
             return []

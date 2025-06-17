@@ -9,7 +9,7 @@ from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
 from .components.image_viewer import ImageViewer, EVT_MOUSE_OVER_IMAGE
-from .components.base_image_viewer import BaseImageViewer
+from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED
 from ffio import Probe
 
 # MARK: constants
@@ -21,31 +21,6 @@ PNG_SUFFIX = '_PNG'
 TIFF_SUFFIX = '_TIFF'
 
 # MARK: correction data model
-
-class Point(BaseModel):
-    x: float|None = None
-    y: float|None = None
-
-    def __str__(self) -> str:
-        return f'(({self.x:.1f},{self.y:.1f}))'
-
-class Rect(BaseModel):
-    left: float|None = None
-    top: float|None = None
-    right: float|None = None
-    bottom: float|None = None
-
-    def __str__(self) -> str:
-        return f'({self.left:.1f},{self.top:.1f})-({self.right:.1f},{self.bottom:.1f})'
-
-class PerspectivePoints(BaseModel):
-    left_top: Point = Point()
-    right_top: Point = Point()
-    right_bottom: Point = Point()
-    left_bottom: Point = Point()
-
-    def __str__(self) -> str:
-        return f'{self.left_top}-{self.right_top}-{self.right_bottom}-{self.left_bottom}'
 
 class CorrectionDataModel(BaseModel):
     base_frame_pos: int|None = None
@@ -61,11 +36,11 @@ class CorrectionDataModel(BaseModel):
     def get_shaking_detection_condition(self):
         count = len(self.shaking_detection_fields)
         if count == 0:
-            return 'ブレ補正しません。「追加」ボタンを押して左の画像にブレ測定の枠を1〜3つ追加するとブレ補正します。'
+            return 'ブレ補正しません。左の画像をドラッグしてブレ測定の枠を1〜3つ追加するとブレ補正します。'
         elif count < 3:
-            return 'XY方向のブレを補正します。回転補正するにはブレ測定の枠が3つ必要です。'
+            return 'XY方向のブレを補正します。ブレの測定枠を2つ追加した場合、最初の1つを用います。回転補正するには3つ必要です。'
         else:
-            return 'XY方向と回転のブレを補正します。'
+            return 'XY方向と回転のブレを補正します。ブレの測定枠を4つ以上追加した場合、最初の3つを用います。'
 
 # MARK: main window
 
@@ -131,7 +106,7 @@ class MainFrame(ToolFrame):
         # shaking detection condition
         shaking_detection_panel = wx.Panel(panel)
         shaking_detection_sizer = wx.BoxSizer(orient=wx.HORIZONTAL)
-        shaking_detection_sizer.Add(wx.StaticText(shaking_detection_panel, label='ブレ補正の可否:'), flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=4)
+        shaking_detection_sizer.Add(wx.StaticText(shaking_detection_panel, label='ブレ補正:'), flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=4)
         self.shaking_detection_condition_label = wx.StaticText(shaking_detection_panel, label=self.model.get_shaking_detection_condition(), style=wx.BORDER_SIMPLE)
         shaking_detection_sizer.Add(self.shaking_detection_condition_label, flag=wx.ALIGN_CENTER_VERTICAL)
         shaking_detection_panel.SetSizerAndFit(shaking_detection_sizer)
@@ -178,9 +153,9 @@ class MainFrame(ToolFrame):
 
         self.input_video_thumbnail.Bind(EVT_VIDEO_LOADED, self.__on_video_loaded)
         self.input_video_thumbnail.Bind(EVT_VIDEO_POSITION_CHANGED, self.__on_video_position_changed)
+        self.base_frame_button.Bind(wx.EVT_RADIOBUTTON, self.__on_base_frame_button_clicked)
+        self.sample_frame_button.Bind(wx.EVT_RADIOBUTTON, self.__on_sample_frame_button_clicked)
         self.Bind(wx.EVT_CLOSE, self.__on_close)
-
-
 
     def __make_viewer_panel(self, parent):
         panel = wx.Panel(parent)
@@ -201,7 +176,8 @@ class MainFrame(ToolFrame):
         # image viewers
         image_panel = wx.Panel(panel)
         image_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
-        self.base_image_viewer = BaseImageViewer(image_panel)
+        self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields)
+        self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
         self.deshake_image_viewer = ImageViewer(image_panel)
         image_sizer.Add(self.deshake_image_viewer, flag=wx.EXPAND)
@@ -225,14 +201,19 @@ class MainFrame(ToolFrame):
         shaking_sizer.AddGrowableRow(0)
         shaking_sizer.AddGrowableCol(0)
         self.shaking_detection_area_listbox = wx.ListBox(shaking_panel, style=wx.LB_SINGLE)
-        self.shaking_detection_area_listbox.Set(self.model.get_shaking_detection_field_list())
+        self.shaking_detection_area_listbox.Bind(wx.EVT_LISTBOX, self.__on_shaking_detection_area_listbox)
         shaking_sizer.Add(self.shaking_detection_area_listbox, flag=wx.EXPAND)
         button_panel = wx.Panel(shaking_panel)
         button_sizer = wx.GridSizer(cols=1, gap=wx.Size(0, 0))
-        shaking_detection_area_add_button = wx.Button(button_panel, label='追加')
-        button_sizer.Add(shaking_detection_area_add_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=4)
-        shaking_detection_area_del_button = wx.Button(button_panel, label='削除')
-        button_sizer.Add(shaking_detection_area_del_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=4)
+        self.shaking_detection_area_add_button = wx.ToggleButton(button_panel, label='追加')
+        self.shaking_detection_area_add_button.SetValue(False)
+        self.shaking_detection_area_add_button.Disable()
+        self.shaking_detection_area_add_button.Bind(wx.EVT_TOGGLEBUTTON, self.__on_shaking_detection_area_add_button_clicked)
+        button_sizer.Add(self.shaking_detection_area_add_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=4)
+        self.shaking_detection_area_del_button = wx.Button(button_panel, label='削除')
+        self.shaking_detection_area_del_button.Disable()
+        self.shaking_detection_area_del_button.Bind(wx.EVT_BUTTON, self.__on_shaking_detection_area_del_button_clicked)
+        button_sizer.Add(self.shaking_detection_area_del_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=4)
         button_panel.SetSizerAndFit(button_sizer)
         shaking_sizer.Add(button_panel, flag=wx.ALIGN_TOP)
         shaking_panel.SetSizerAndFit(shaking_sizer)
@@ -289,8 +270,10 @@ class MainFrame(ToolFrame):
         self.deshake_image_viewer.set_image(frame)
         self.clip_image_viewer.set_image(frame)
 
-
-
+    def __sync_shaking_detection_area_listbox(self):
+        field_list = self.model.get_shaking_detection_field_list()
+        self.shaking_detection_area_listbox.Set(field_list)
+        self.shaking_detection_condition_label.SetLabel(self.model.get_shaking_detection_condition())
 
     def __make_setting_file_path(self):
         path = get_path(self.input_file_picker.GetPath())
@@ -313,6 +296,7 @@ class MainFrame(ToolFrame):
         self.deshake_image_viewer.clear()
         self.clip_image_viewer.clear()
         self.shaking_detection_area_listbox.Clear()
+        self.shaking_detection_area_del_button.Disable()
         self.rotation.SetValue('0.00')
         self.output_video_thumbnail.clear()
         self.output_filename_text.SetValue('')
@@ -324,16 +308,67 @@ class MainFrame(ToolFrame):
 
     def __on_video_loaded(self, event):
         position = self.input_video_thumbnail.get_frame_position()
-        if self.model.base_frame_pos is None:
+        count = self.input_video_thumbnail.get_frame_count()
+        if self.model.base_frame_pos is None or self.model.base_frame_pos >= count:
             self.model.base_frame_pos = position
-        if self.model.sample_frame_pos is None:
+        if self.model.sample_frame_pos is None or self.model.sample_frame_pos >= count:
             self.model.sample_frame_pos = position
         self.__set_base_image_viewer()
         self.__set_sample_image_viewer()
+        self.__sync_shaking_detection_area_listbox()
+        self.shaking_detection_area_add_button.Enable()
         event.Skip()
 
     def __on_video_position_changed(self, event):
-        pass
+        if self.base_frame_button.GetValue():
+            self.model.base_frame_pos = event.position
+            self.__set_base_image_viewer()
+        elif self.sample_frame_button.GetValue():
+            self.model.sample_frame_pos = event.position
+            self.__set_sample_image_viewer()
+        event.Skip()
+
+    def __on_base_frame_button_clicked(self, event):
+        count = self.input_video_thumbnail.get_frame_count()
+        if self.model.base_frame_pos is None or self.model.base_frame_pos >= count:
+            return
+        self.input_video_thumbnail.set_frame_position(self.model.base_frame_pos)
+
+    def __on_sample_frame_button_clicked(self, event):
+        count = self.input_video_thumbnail.get_frame_count()
+        if self.model.sample_frame_pos is None or self.model.sample_frame_pos >= count:
+            return
+        self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
+
+    def __on_field_added(self, event):
+        sz = event.field.get_size()
+        if sz[0] * sz[1]:
+            self.model.shaking_detection_fields.append(event.field)
+            self.__sync_shaking_detection_area_listbox()
+            self.shaking_detection_area_listbox.EnsureVisible(len(self.model.shaking_detection_fields) - 1)
+        self.shaking_detection_area_add_button.SetValue(False)
+        self.base_image_viewer.set_field_add_mode(False)
+
+    def __on_shaking_detection_area_listbox(self, event):
+        sel = self.shaking_detection_area_listbox.GetSelection()
+        if sel == wx.NOT_FOUND:
+            self.shaking_detection_area_del_button.Disable()
+        else:
+            self.shaking_detection_area_del_button.Enable()
+            self.base_image_viewer.show_field(self.model.shaking_detection_fields[sel])
+
+    def __on_shaking_detection_area_add_button_clicked(self, event):
+        value = self.shaking_detection_area_add_button.GetValue()
+        self.base_image_viewer.set_field_add_mode(value)
+
+    def __on_shaking_detection_area_del_button_clicked(self, event):
+        sel = self.shaking_detection_area_listbox.GetSelection()
+        if sel == wx.NOT_FOUND:
+            return
+        self.model.shaking_detection_fields.pop(sel)
+        self.__sync_shaking_detection_area_listbox()
+        self.base_image_viewer.Refresh()
+        self.shaking_detection_area_del_button.Disable()
 
     def __on_setting_timer(self, event):
         event.Skip()
