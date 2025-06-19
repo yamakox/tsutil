@@ -19,46 +19,46 @@ class FieldAddedEvent(wx.ThreadEvent):
 # MARK: main class
 
 class BaseImageViewer(ImageViewer):
-    def __init__(self, parent, fields: list[Rect], *args, **kwargs):
+    def __init__(self, parent, fields: list[Rect], field_visible: bool=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.fields = fields
+        self.field_visible = field_visible
         self.field_add_mode = False
         self.dragging_rect = None
 
     def set_field_add_mode(self, mode):
         self.field_add_mode = mode
 
-    def show_field(self, field: Rect):
+    def set_field_visible(self, field_visible: bool=True):
+        self.field_visible = field_visible
+        self.Refresh()
+
+    def move_view_to_field(self, field: Rect):
         x, y = field.get_center()
         w, h = field.get_size()
         if w is None:
             return
-        ratio_w = self.regions['preview'].GetWidth() / (w * 2)
-        ratio_h = self.regions['preview'].GetHeight() / (h * 2)
+        ratio_w = self.regions['preview'].GetWidth() / (w * 5)
+        ratio_h = self.regions['preview'].GetHeight() / (h * 5)
         zoom = min(ratio_w, ratio_h)
         self.set_image_zoom_position(x, y, zoom)
 
-
-
     def on_paint(self, event):
         super().on_paint(event)
-        if self.buf is None:
+        if self.image is None:
             return
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.Clip(wx.Region(self.regions['preview']))
-            gc.SetPen(wx.Pen(wx.Colour(128, 255, 0, 255)))
-            gc.SetBrush(wx.Brush(wx.Colour(128, 255, 0, 64)))
-            ign_idx = 1 if len(self.fields) < 3 else 3
-            for i, field in enumerate(self.fields):
-                if i == ign_idx:
-                    gc.SetPen(wx.Pen(wx.Colour(160, 160, 160, 255)))
-                    gc.SetBrush(wx.Brush(wx.Colour(160, 160, 160, 64)))
-                self.__paint_rect(gc, field)
-            gc.SetPen(wx.Pen(wx.Colour(255, 0, 0, 255)))
-            gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 64)))
+            if self.field_visible:
+                gc.SetPen(wx.Pen(wx.Colour(128, 255, 0, 255)))
+                gc.SetBrush(wx.Brush(wx.Colour(128, 255, 0, 64)))
+                for i, field in enumerate(self.fields):
+                    self.__paint_rect(gc, field)
             if self.dragging_rect is not None:
+                gc.SetPen(wx.Pen(wx.Colour(255, 0, 0, 255)))
+                gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 64)))
                 self.__paint_rect(gc, self.dragging_rect)
             gc.ResetClip()
 

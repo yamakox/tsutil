@@ -376,37 +376,26 @@ class MainFrame(ToolFrame):
             self.huesaturation_saturation.Disable()
             self.huesaturation_intensity.Disable()
 
-    def __get_spin_ctrl_value(self, spin_ctrl):
-        value = spin_ctrl.GetTextValue()
-        if len(value) == 0:
-            return spin_ctrl.GetValue()
-        _min, _max = spin_ctrl.GetMin(), spin_ctrl.GetMax()
-        if type(_min) == int:
-            value = int(value)
-        else:
-            value = float(value)
-        return min(max(_min, value), _max)
-
     def __make_filter_complex(self):
         filter_complex = {}
         if self.eq_button.GetValue():
             filter_complex['eq'] = dict(
-                brightness=self.__get_spin_ctrl_value(self.eq_brightness),
-                contrast=self.__get_spin_ctrl_value(self.eq_contrast),
-                gamma=self.__get_spin_ctrl_value(self.eq_gamma),
-                saturation=self.__get_spin_ctrl_value(self.eq_saturation),
+                brightness=get_spin_ctrl_value(self.eq_brightness),
+                contrast=get_spin_ctrl_value(self.eq_contrast),
+                gamma=get_spin_ctrl_value(self.eq_gamma),
+                saturation=get_spin_ctrl_value(self.eq_saturation),
             )
         if self.colortemperature_button.GetValue():
             filter_complex['colortemperature'] = dict(
-                temperature=self.__get_spin_ctrl_value(self.colortemperature_temperature),
-                pl=self.__get_spin_ctrl_value(self.colortemperature_pl),
-                mix=self.__get_spin_ctrl_value(self.colortemperature_mix),
+                temperature=get_spin_ctrl_value(self.colortemperature_temperature),
+                pl=get_spin_ctrl_value(self.colortemperature_pl),
+                mix=get_spin_ctrl_value(self.colortemperature_mix),
             )
         if self.huesaturation_button.GetValue():
             filter_complex['huesaturation'] = dict(
-                hue=self.__get_spin_ctrl_value(self.huesaturation_hue),
-                saturation=self.__get_spin_ctrl_value(self.huesaturation_saturation),
-                intensity=self.__get_spin_ctrl_value(self.huesaturation_intensity),
+                hue=get_spin_ctrl_value(self.huesaturation_hue),
+                saturation=get_spin_ctrl_value(self.huesaturation_saturation),
+                intensity=get_spin_ctrl_value(self.huesaturation_intensity),
             )
         print(f'{filter_complex=}')
         return filter_complex
@@ -424,18 +413,18 @@ class MainFrame(ToolFrame):
         setting = dict(
             rotation=self.rotation,
             eq=self.eq_button.GetValue(),
-            eq_brightness=self.__get_spin_ctrl_value(self.eq_brightness),
-            eq_contrast=self.__get_spin_ctrl_value(self.eq_contrast),
-            eq_gamma=self.__get_spin_ctrl_value(self.eq_gamma),
-            eq_saturation=self.__get_spin_ctrl_value(self.eq_saturation),
+            eq_brightness=get_spin_ctrl_value(self.eq_brightness),
+            eq_contrast=get_spin_ctrl_value(self.eq_contrast),
+            eq_gamma=get_spin_ctrl_value(self.eq_gamma),
+            eq_saturation=get_spin_ctrl_value(self.eq_saturation),
             colortemperature=self.colortemperature_button.GetValue(),
-            colortemperature_temperature=self.__get_spin_ctrl_value(self.colortemperature_temperature),
-            colortemperature_pl=self.__get_spin_ctrl_value(self.colortemperature_pl),
-            colortemperature_mix=self.__get_spin_ctrl_value(self.colortemperature_mix),
+            colortemperature_temperature=get_spin_ctrl_value(self.colortemperature_temperature),
+            colortemperature_pl=get_spin_ctrl_value(self.colortemperature_pl),
+            colortemperature_mix=get_spin_ctrl_value(self.colortemperature_mix),
             huesaturation=self.huesaturation_button.GetValue(),
-            huesaturation_hue=self.__get_spin_ctrl_value(self.huesaturation_hue),
-            huesaturation_saturation=self.__get_spin_ctrl_value(self.huesaturation_saturation),
-            huesaturation_intensity=self.__get_spin_ctrl_value(self.huesaturation_intensity),
+            huesaturation_hue=get_spin_ctrl_value(self.huesaturation_hue),
+            huesaturation_saturation=get_spin_ctrl_value(self.huesaturation_saturation),
+            huesaturation_intensity=get_spin_ctrl_value(self.huesaturation_intensity),
         )
         with open(path, 'w') as f:
             json.dump(setting, f, indent=2)

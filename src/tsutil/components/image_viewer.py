@@ -14,6 +14,7 @@ DRAGGING_PREVIEW = 1
 DRAGGING_HSCROLL = 2
 DRAGGING_VSCROLL = 3
 DRAGGING_ZOOM = 4
+GRID_SIZE = 50
 
 # MARK: events
 
@@ -36,6 +37,7 @@ class ImageViewer(wx.Panel):
         self.image_ox = 0.0
         self.image_oy = 0.0
         self.zoom_ratio = 0.0
+        self.use_grid = False
         self.min_zoom_ratio = 0.0
         self.zoomed_image = None
         self.dragging = DRAGGING_NONE
@@ -58,6 +60,10 @@ class ImageViewer(wx.Panel):
         self.Bind(wx.EVT_LEAVE_WINDOW, self.on_mouse_leave)
         self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
         self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
+
+    def set_grid(self, use_grid: bool=True):
+        self.use_grid = use_grid
+        self.Refresh()
 
     def clear(self):
         self.image = None
@@ -260,6 +266,16 @@ class ImageViewer(wx.Panel):
                 vsl_min = max(0, int(oy - vsl * .5 + .5))
                 vsl_max = min(h, int(oy + vsl * .5 + .5))
                 gc.DrawRectangle(w, vsl_min, SCROLL_BAR_SIZE, vsl_max - vsl_min)
+            if self.use_grid:
+                rgn = self.regions['preview']
+                gc.Clip(wx.Region(rgn))
+                gc.SetPen(wx.Pen(wx.Colour(80, 80, 80, 160)))
+                gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
+                for x in range(rgn.left, rgn.right, GRID_SIZE):
+                    gc.DrawRectangle(x, rgn.top, .5, rgn.bottom - rgn.top)
+                for y in range(rgn.top, rgn.bottom, GRID_SIZE):
+                    gc.DrawRectangle(rgn.left, y, rgn.right - rgn.left, .5)
+                gc.ResetClip()
 
     def on_mouse_down(self, event):
         if self.image is None:

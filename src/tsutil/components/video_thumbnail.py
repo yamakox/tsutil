@@ -452,7 +452,7 @@ class VideoThumbnail(wx.Panel):
             future_list = []
             indexed_frame = {}
             def _load_and_save_frame(indexed_frame, index, image_path, output, transform, clip):
-                frame = cv2.imread(str(image_path))
+                frame = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
                 h, w, _ = frame.shape
                 if output:
                     image_filename = output.dir_name / image_path.name

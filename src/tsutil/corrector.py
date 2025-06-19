@@ -5,12 +5,13 @@ from subprocess import Popen, PIPE
 from pydantic import BaseModel
 import numpy as np
 import cv2
+import time
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
 from .components.image_viewer import ImageViewer, EVT_MOUSE_OVER_IMAGE
 from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED
-from ffio import Probe
+from .functions import DeshakingCorrection
 
 # MARK: constants
 
@@ -25,22 +26,51 @@ TIFF_SUFFIX = '_TIFF'
 class CorrectionDataModel(BaseModel):
     base_frame_pos: int|None = None
     sample_frame_pos: int|None = None
-    shaking_detection_fields: list[Rect] = []   # Rect * (0 or 1 or 3)
+    select_sample_frame: bool = False
+    use_deshake_correction: bool = True
+    use_rotation_correction: bool = True
+    use_perspective_correction: bool = True
+    use_overlay: bool = False
+    use_nega: bool = False
+    use_grid: bool = False
+    shaking_detection_fields: list[Rect] = []
     rotation_angle: float|None = None
     perspective_coords: PerspectivePoints = PerspectivePoints()
     clip: Rect = Rect()
 
     def get_shaking_detection_field_list(self):
-        return [f'{i + 1}: {str(item)}' for i, item in enumerate(self.shaking_detection_fields)]
-
-    def get_shaking_detection_condition(self):
-        count = len(self.shaking_detection_fields)
-        if count == 0:
-            return 'ブレ補正しません。左の画像をドラッグしてブレ測定の枠を1〜3つ追加するとブレ補正します。'
-        elif count < 3:
-            return 'XY方向のブレを補正します。ブレの測定枠を2つ追加した場合、最初の1つを用います。回転補正するには3つ必要です。'
-        else:
-            return 'XY方向と回転のブレを補正します。ブレの測定枠を4つ以上追加した場合、最初の3つを用います。'
+        return [f'A{i + 1}: {str(item)}' for i, item in enumerate(self.shaking_detection_fields)]
+    
+    def clear(self):
+        self.base_frame_pos = None
+        self.sample_frame_pos = None
+        self.select_sample_frame: bool = False
+        self.use_deshake_correction = True
+        self.use_rotation_correction = True
+        self.use_perspective_correction = True
+        self.use_overlay = False
+        self.use_nega = False
+        self.use_grid = False
+        self.shaking_detection_fields.clear()
+        self.rotation_angle = None
+        self.perspective_coords.clear()
+        self.clip.clear()
+    
+    def copy_from(self, other: 'CorrectionDataModel'):
+        self.base_frame_pos = other.base_frame_pos
+        self.sample_frame_pos = other.sample_frame_pos
+        self.select_sample_frame = other.select_sample_frame
+        self.use_deshake_correction = other.use_deshake_correction
+        self.use_rotation_correction = other.use_rotation_correction
+        self.use_perspective_correction = other.use_perspective_correction
+        self.use_overlay = other.use_overlay
+        self.use_nega = other.use_nega
+        self.use_grid = other.use_grid
+        self.shaking_detection_fields.clear()
+        self.shaking_detection_fields.extend(other.shaking_detection_fields)
+        self.rotation_angle = other.rotation_angle
+        self.perspective_coords.copy_from(other.perspective_coords)
+        self.clip.copy_from(other.clip)
 
 # MARK: main window
 
@@ -48,7 +78,7 @@ class MainFrame(ToolFrame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.model = CorrectionDataModel()
-        self.deshaking_transform = np.eye(3)
+        self.deshaking_correction = DeshakingCorrection()
         self.transform = np.eye(3)
         self.base_frame = None
         self.sample_frame = None
@@ -103,14 +133,35 @@ class MainFrame(ToolFrame):
         sizer.AddGrowableRow(row)
         row += 1
 
-        # shaking detection condition
-        shaking_detection_panel = wx.Panel(panel)
-        shaking_detection_sizer = wx.BoxSizer(orient=wx.HORIZONTAL)
-        shaking_detection_sizer.Add(wx.StaticText(shaking_detection_panel, label='ブレ補正:'), flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=4)
-        self.shaking_detection_condition_label = wx.StaticText(shaking_detection_panel, label=self.model.get_shaking_detection_condition(), style=wx.BORDER_SIMPLE)
-        shaking_detection_sizer.Add(self.shaking_detection_condition_label, flag=wx.ALIGN_CENTER_VERTICAL)
-        shaking_detection_panel.SetSizerAndFit(shaking_detection_sizer)
-        sizer.Add(shaking_detection_panel, flag=wx.EXPAND|wx.BOTTOM, border=4)
+        # use correction panel
+        use_correction_panel = wx.Panel(panel)
+        user_correction_sizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+        self.use_deshake_correction_button = wx.CheckBox(use_correction_panel, label='ブレ補正を行う')
+        self.use_deshake_correction_button.SetValue(self.model.use_deshake_correction)
+        self.use_deshake_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_deshake_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='基準画像の回転補正を行う')
+        self.use_rotation_correction_button.SetValue(self.model.use_rotation_correction)
+        self.use_rotation_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_rotation_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_perspective_correction_button = wx.CheckBox(use_correction_panel, label='歪み補正(射影変換)を行う')
+        self.use_perspective_correction_button.SetValue(self.model.use_perspective_correction)
+        self.use_perspective_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_perspective_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_overlay_button = wx.CheckBox(use_correction_panel, label='基準画像を重ねて表示する')
+        self.use_overlay_button.SetValue(self.model.use_overlay)
+        self.use_overlay_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_overlay_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_nega_button = wx.CheckBox(use_correction_panel, label='ネガで重ねる')
+        self.use_nega_button.SetValue(self.model.use_nega)
+        self.use_nega_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_nega_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_grid_button = wx.CheckBox(use_correction_panel, label='グリッドを表示する')
+        self.use_grid_button.SetValue(self.model.use_grid)
+        self.use_grid_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_grid_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        use_correction_panel.SetSizerAndFit(user_correction_sizer)
+        sizer.Add(use_correction_panel, flag=wx.EXPAND|wx.BOTTOM, border=8)
         row += 1
 
         # console panel
@@ -179,8 +230,8 @@ class MainFrame(ToolFrame):
         self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields)
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
-        self.deshake_image_viewer = ImageViewer(image_panel)
-        image_sizer.Add(self.deshake_image_viewer, flag=wx.EXPAND)
+        self.deshaking_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields, False)
+        image_sizer.Add(self.deshaking_image_viewer, flag=wx.EXPAND)
         self.clip_image_viewer = ImageViewer(image_panel)
         image_sizer.Add(self.clip_image_viewer, flag=wx.EXPAND)
         image_panel.SetSizerAndFit(image_sizer)
@@ -227,6 +278,8 @@ class MainFrame(ToolFrame):
         rotation_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(4, 0))
         rotation_sizer.Add(wx.StaticText(rotation_panel, label='基準画像の回転を補正する角度:', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL)
         self.rotation = wx.SpinCtrlDouble(rotation_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.rotation.Bind(wx.EVT_TEXT, self.__on_input_value_changed)
+        self.rotation.Bind(wx.EVT_SPINCTRLDOUBLE, self.__on_input_value_changed)
         rotation_sizer.Add(self.rotation, flag=wx.EXPAND)
         rotation_panel.SetSizerAndFit(rotation_sizer)
         correction_sizer.Add(rotation_panel, flag=wx.ALIGN_CENTER_HORIZONTAL|wx.TOP|wx.BOTTOM, border=6)
@@ -255,25 +308,43 @@ class MainFrame(ToolFrame):
     def __set_base_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
         if image_catalog is None or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
+            self.base_image_viewer.clear()
             return
-        self.base_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.base_frame_pos])), cv2.COLOR_BGR2RGB)
+        self.base_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.base_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        self.deshaking_correction.set_base_image(self.base_frame)
         frame = (self.base_frame // 256).astype(np.uint8)  if self.base_frame.dtype == np.uint16 else self.base_frame
         self.base_image_viewer.set_image(frame)
 
     def __set_sample_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
         if image_catalog is None or self.model.sample_frame_pos is None or self.model.sample_frame_pos >= len(image_catalog):
+            self.deshaking_image_viewer.clear()
+            self.clip_image_viewer.clear()
             return
-        self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos])), cv2.COLOR_BGR2RGB)
+        
+        # deshaking image
+        self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        self.deshaking_correction.set_sample_image(self.sample_frame)
+        fields = self.model.shaking_detection_fields if self.model.use_deshake_correction else []
+        angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
+        mat = self.deshaking_correction.compute(fields, angle)
         frame = (self.sample_frame // 256).astype(np.uint8)  if self.sample_frame.dtype == np.uint16 else self.sample_frame
+        deshaked_frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
+        if self.model.use_overlay:
+            if self.model.use_nega:
+                deshaked_frame = deshaked_frame // 2 + (255 - self.base_frame) // 2
+            else:
+                deshaked_frame = deshaked_frame // 2 + self.base_frame // 2
+        self.deshaking_image_viewer.set_image(deshaked_frame)
+        self.deshaking_image_viewer.set_field_visible(self.model.use_overlay)
+        self.deshaking_image_viewer.set_grid(self.model.use_grid)
 
-        self.deshake_image_viewer.set_image(frame)
+        # clip image
         self.clip_image_viewer.set_image(frame)
 
     def __sync_shaking_detection_area_listbox(self):
         field_list = self.model.get_shaking_detection_field_list()
         self.shaking_detection_area_listbox.Set(field_list)
-        self.shaking_detection_condition_label.SetLabel(self.model.get_shaking_detection_condition())
 
     def __make_setting_file_path(self):
         path = get_path(self.input_file_picker.GetPath())
@@ -281,19 +352,60 @@ class MainFrame(ToolFrame):
             return None
         return path.with_suffix(SETTING_EXTENSION)
 
+    def __update_model(self):
+        self.model.select_sample_frame = self.sample_frame_button.GetValue()
+        self.model.use_deshake_correction = self.use_deshake_correction_button.GetValue()
+        self.model.use_rotation_correction = self.use_rotation_correction_button.GetValue()
+        self.model.use_perspective_correction = self.use_perspective_correction_button.GetValue()
+        self.model.use_overlay = self.use_overlay_button.GetValue()
+        self.model.use_nega = self.use_nega_button.GetValue()
+        self.model.use_grid = self.use_grid_button.GetValue()
+        self.model.rotation_angle = get_spin_ctrl_value(self.rotation)
+
     def __save_setting(self):
-        pass
+        self.__update_model()
+        path = self.__make_setting_file_path()
+        if not path:
+            return
+        with open(path, 'w') as f:
+            f.write(self.model.model_dump_json(indent=2))
 
     def __load_setting(self):
-        pass
+        path = self.__make_setting_file_path()
+        if not path_exists(path):
+            return
+        def _g(value, default_value):
+            if type(value) == float:
+                return f'{value:.2f}'
+            return value
+        try:
+            with open(path, 'r') as f:
+                model = CorrectionDataModel.model_validate_json(f.read())
+                self.model.copy_from(model)
+                self.use_deshake_correction_button.SetValue(self.model.use_deshake_correction)
+                self.use_rotation_correction_button.SetValue(self.model.use_rotation_correction)
+                self.use_perspective_correction_button.SetValue(self.model.use_perspective_correction)
+                self.use_overlay_button.SetValue(self.model.use_overlay)
+                self.use_nega_button.SetValue(self.model.use_nega)
+                self.use_grid_button.SetValue(self.model.use_grid)
+                self.rotation.SetValue(_g(self.model.rotation_angle, '0.00'))
+                self.__sync_shaking_detection_area_listbox()
+                if self.model.select_sample_frame:
+                    self.sample_frame_button.SetValue(True)
+                else:
+                    self.base_frame_button.SetValue(True)
+                self.deshaking_image_viewer.set_grid(self.model.use_grid)
+        except Exception as e:
+            wx.MessageBox(f'設定の読み込みに失敗しました:\n{e}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
 
     def __load_image_catalog(self):
         path = get_path(self.input_file_picker.GetPath())
         if not path_exists(path):
             return
+        self.model.clear()
         self.input_video_thumbnail.clear()
         self.base_image_viewer.clear()
-        self.deshake_image_viewer.clear()
+        self.deshaking_image_viewer.clear()
         self.clip_image_viewer.clear()
         self.shaking_detection_area_listbox.Clear()
         self.shaking_detection_area_del_button.Disable()
@@ -311,8 +423,12 @@ class MainFrame(ToolFrame):
         count = self.input_video_thumbnail.get_frame_count()
         if self.model.base_frame_pos is None or self.model.base_frame_pos >= count:
             self.model.base_frame_pos = position
+        elif self.base_frame_button.GetValue():
+            self.input_video_thumbnail.set_frame_position(self.model.base_frame_pos)
         if self.model.sample_frame_pos is None or self.model.sample_frame_pos >= count:
             self.model.sample_frame_pos = position
+        elif self.sample_frame_button.GetValue():
+            self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
         self.__set_base_image_viewer()
         self.__set_sample_image_viewer()
         self.__sync_shaking_detection_area_listbox()
@@ -333,12 +449,14 @@ class MainFrame(ToolFrame):
         if self.model.base_frame_pos is None or self.model.base_frame_pos >= count:
             return
         self.input_video_thumbnail.set_frame_position(self.model.base_frame_pos)
+        self.model.select_sample_frame = False
 
     def __on_sample_frame_button_clicked(self, event):
         count = self.input_video_thumbnail.get_frame_count()
         if self.model.sample_frame_pos is None or self.model.sample_frame_pos >= count:
             return
         self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
+        self.model.select_sample_frame = True
 
     def __on_field_added(self, event):
         sz = event.field.get_size()
@@ -346,6 +464,7 @@ class MainFrame(ToolFrame):
             self.model.shaking_detection_fields.append(event.field)
             self.__sync_shaking_detection_area_listbox()
             self.shaking_detection_area_listbox.EnsureVisible(len(self.model.shaking_detection_fields) - 1)
+            self.setting_changed_time = time.time()
         self.shaking_detection_area_add_button.SetValue(False)
         self.base_image_viewer.set_field_add_mode(False)
 
@@ -355,7 +474,7 @@ class MainFrame(ToolFrame):
             self.shaking_detection_area_del_button.Disable()
         else:
             self.shaking_detection_area_del_button.Enable()
-            self.base_image_viewer.show_field(self.model.shaking_detection_fields[sel])
+            self.base_image_viewer.move_view_to_field(self.model.shaking_detection_fields[sel])
 
     def __on_shaking_detection_area_add_button_clicked(self, event):
         value = self.shaking_detection_area_add_button.GetValue()
@@ -367,10 +486,22 @@ class MainFrame(ToolFrame):
             return
         self.model.shaking_detection_fields.pop(sel)
         self.__sync_shaking_detection_area_listbox()
-        self.base_image_viewer.Refresh()
+        self.Refresh()
         self.shaking_detection_area_del_button.Disable()
+        self.setting_changed_time = time.time()
+
+    def __on_input_value_changed(self, event):
+        self.setting_changed_time = time.time()
+        event.Skip()
 
     def __on_setting_timer(self, event):
+        if self.setting_changed_time is None:
+            event.Skip()
+            return
+        if time.time() - self.setting_changed_time >= 1.0:
+            self.setting_changed_time = None
+            self.__update_model()
+            self.__set_sample_image_viewer()
         event.Skip()
 
     def __on_close(self, event):
