@@ -18,6 +18,7 @@ RAW_SUFFIX = '_RAW'
 class MainFrame(ToolFrame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
+        self.file_menu_save.Enable(False)
 
         frame_sizer = wx.GridSizer(rows=1, cols=1, gap=wx.Size(0, 0))
         panel = wx.Panel(self)

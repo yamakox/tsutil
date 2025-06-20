@@ -64,7 +64,8 @@ class BaseImageViewer(ImageViewer):
 
     def __paint_rect(self, gc, rect: Rect):
         x0, y0, x1, y1 = self.get_view_rect(*rect.to_tuple())
-        gc.DrawRectangle(x0, y0, x1 - x0, y1 - y0)
+        # Penの太さの分だけ幅・高さが増加する
+        gc.DrawRectangle(x0, y0, x1 - x0 - 1, y1 - y0 - 1)
 
     def on_mouse_down(self, event):
         if self.image is None:
@@ -81,8 +82,6 @@ class BaseImageViewer(ImageViewer):
     def on_mouse_up(self, event):
         if self.image is None:
             return
-        x = event.GetX()
-        y = event.GetY()
         if self.dragging == DRAGGING_RECT:
             if self.dragging_rect.right < self.dragging_rect.left:
                 self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left

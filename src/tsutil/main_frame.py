@@ -46,6 +46,8 @@ class MainFrame(wx.Frame):
         frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=MARGIN)
         self.SetSizer(frame_sizer)
 
+        self.Bind(wx.EVT_CLOSE, self.__on_close)
+
     def __make_button(self, panel: wx.Panel, mainLabel: str, note: str, callback: Callable[[wx.CommandEvent], None]) -> wx.adv.CommandLinkButton:
         btn = wx.adv.CommandLinkButton(panel, mainLabel=mainLabel, note=note)
         btn.Bind(wx.EVT_BUTTON, callback)
@@ -62,3 +64,6 @@ class MainFrame(wx.Frame):
     def __launch_corrector(self, event):
         frame = corrector.MainFrame(self)
         frame.Show()
+
+    def __on_close(self, event):
+        event.Skip()

@@ -9,8 +9,9 @@ import time
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
-from .components.image_viewer import ImageViewer, EVT_MOUSE_OVER_IMAGE
+from .components.image_viewer import ImageViewer
 from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED
+from .components.deshaking_image_viewer import DeshakingImageViewer, EVT_PERSPECTIVE_POINTS_CHANGED
 from .functions import DeshakingCorrection
 
 # MARK: constants
@@ -35,7 +36,7 @@ class CorrectionDataModel(BaseModel):
     use_grid: bool = False
     shaking_detection_fields: list[Rect] = []
     rotation_angle: float|None = None
-    perspective_coords: PerspectivePoints = PerspectivePoints()
+    perspective_points: PerspectivePoints = PerspectivePoints()
     clip: Rect = Rect()
 
     def get_shaking_detection_field_list(self):
@@ -53,7 +54,7 @@ class CorrectionDataModel(BaseModel):
         self.use_grid = False
         self.shaking_detection_fields.clear()
         self.rotation_angle = None
-        self.perspective_coords.clear()
+        self.perspective_points.clear()
         self.clip.clear()
     
     def copy_from(self, other: 'CorrectionDataModel'):
@@ -69,7 +70,7 @@ class CorrectionDataModel(BaseModel):
         self.shaking_detection_fields.clear()
         self.shaking_detection_fields.extend(other.shaking_detection_fields)
         self.rotation_angle = other.rotation_angle
-        self.perspective_coords.copy_from(other.perspective_coords)
+        self.perspective_points.copy_from(other.perspective_points)
         self.clip.copy_from(other.clip)
 
 # MARK: main window
@@ -218,8 +219,8 @@ class MainFrame(ToolFrame):
         caption_panel = wx.Panel(panel)
         caption_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
         caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正の基準画像とブレ測定枠の設定:'), flag=wx.ALIGN_CENTER)
-        caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正後のサンプル画像と画像補正の設定'), flag=wx.ALIGN_CENTER)
-        caption_sizer.Add(wx.StaticText(caption_panel, label='画像補正後のサンプル画像'), flag=wx.ALIGN_CENTER)
+        caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正後のサンプル画像と歪み補正の設定:'), flag=wx.ALIGN_CENTER)
+        caption_sizer.Add(wx.StaticText(caption_panel, label='画像補正後のサンプル画像とクリップ範囲の設定:'), flag=wx.ALIGN_CENTER)
         caption_panel.SetSizerAndFit(caption_sizer)
         sizer.Add(caption_panel, flag=wx.EXPAND)
         row += 1
@@ -230,7 +231,8 @@ class MainFrame(ToolFrame):
         self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields)
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
-        self.deshaking_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields, False)
+        self.deshaking_image_viewer = DeshakingImageViewer(image_panel, self.model.perspective_points, self.model.shaking_detection_fields, False)
+        self.deshaking_image_viewer.Bind(EVT_PERSPECTIVE_POINTS_CHANGED, self.__on_perspective_points_changed)
         image_sizer.Add(self.deshaking_image_viewer, flag=wx.EXPAND)
         self.clip_image_viewer = ImageViewer(image_panel)
         image_sizer.Add(self.clip_image_viewer, flag=wx.EXPAND)
@@ -283,8 +285,8 @@ class MainFrame(ToolFrame):
         rotation_sizer.Add(self.rotation, flag=wx.EXPAND)
         rotation_panel.SetSizerAndFit(rotation_sizer)
         correction_sizer.Add(rotation_panel, flag=wx.ALIGN_CENTER_HORIZONTAL|wx.TOP|wx.BOTTOM, border=6)
-        correction_sizer.Add(wx.StaticText(correction_panel, label='歪み補正(射影変換)は中央の画像の□を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
-        correction_sizer.Add(wx.StaticText(correction_panel, label='水平・垂直にする領域を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        correction_sizer.Add(wx.StaticText(correction_panel, label='歪み補正(射影変換)は中央の画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        correction_sizer.Add(wx.StaticText(correction_panel, label='水平・垂直にする四角形を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         correction_panel.SetSizerAndFit(correction_sizer)
         sizer.Add(correction_panel, flag=wx.EXPAND)
 
@@ -292,7 +294,7 @@ class MainFrame(ToolFrame):
         clip_panel = wx.Panel(panel)
         clip_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         clip_sizer.AddGrowableCol(0)
-        clip_sizer.Add(wx.StaticText(clip_panel, label='補正画像は右の画像の□を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        clip_sizer.Add(wx.StaticText(clip_panel, label='補正画像は右の画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         clip_sizer.Add(wx.StaticText(clip_panel, label='画像ファイルに保存する領域を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         clip_sizer.AddStretchSpacer()
         clip_sizer.AddGrowableRow(2)
@@ -324,6 +326,8 @@ class MainFrame(ToolFrame):
         
         # deshaking image
         self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        if self.model.perspective_points.is_none():
+            self.model.perspective_points.init(self.sample_frame)
         self.deshaking_correction.set_sample_image(self.sample_frame)
         fields = self.model.shaking_detection_fields if self.model.use_deshake_correction else []
         angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
@@ -340,7 +344,10 @@ class MainFrame(ToolFrame):
         self.deshaking_image_viewer.set_grid(self.model.use_grid)
 
         # clip image
-        self.clip_image_viewer.set_image(frame)
+        if self.model.use_perspective_correction:
+            mat = self.model.perspective_points.get_transform_matrix() @ mat
+        corrected_frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
+        self.clip_image_viewer.set_image(corrected_frame)
 
     def __sync_shaking_detection_area_listbox(self):
         field_list = self.model.get_shaking_detection_field_list()
@@ -467,6 +474,10 @@ class MainFrame(ToolFrame):
             self.setting_changed_time = time.time()
         self.shaking_detection_area_add_button.SetValue(False)
         self.base_image_viewer.set_field_add_mode(False)
+        self.__set_sample_image_viewer()
+
+    def __on_perspective_points_changed(self, event):
+        self.__set_sample_image_viewer()
 
     def __on_shaking_detection_area_listbox(self, event):
         sel = self.shaking_detection_area_listbox.GetSelection()
@@ -508,6 +519,10 @@ class MainFrame(ToolFrame):
         self.setting_timer.Stop()
         self.__save_setting()
         event.Skip()
+
+    def on_save_menu(self, event):
+        super().on_save_menu(event)
+        self.__save_setting()
 
     def __on_save_button_clicked(self, event):
         pass

@@ -223,7 +223,9 @@ class VideoThumbnail(wx.Panel):
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:
+            gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
             gc.DrawBitmap(self.bitmap, RANGE_BAR_WIDTH, 0, *THUMBNAIL_SIZE)
+            gc.SetInterpolationQuality(wx.INTERPOLATION_DEFAULT)
 
             if self.progress_total > 0:
                 gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))

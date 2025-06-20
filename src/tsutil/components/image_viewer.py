@@ -117,22 +117,30 @@ class ImageViewer(wx.Panel):
         self.image_oy = image_oy
         self.__zoom_and_update_preview()
 
-    def get_view_position(self, x: float, y: float) -> tuple[int, int]:
+    def get_view_position(self, x: float, y: float) -> tuple[int, int]|tuple[None, None]:
+        if self.image is None:
+            return None, None
+        zx = self.zoomed_image.shape[1] / self.image.shape[1]
+        zy = self.zoomed_image.shape[0] / self.image.shape[0]
         ox, oy = self.image_ox, self.image_oy
         v_x = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
         v_y = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
-        v_x += (x - ox) * self.zoom_ratio
-        v_y += (y - oy) * self.zoom_ratio
+        v_x += (x - ox) * zx
+        v_y += (y - oy) * zy
         return int(v_x + .5), int(v_y + .5)
 
-    def get_view_rect(self, left: float, top: float, right: float, bottom: float) -> tuple[int, int, int, int]:
+    def get_view_rect(self, left: float, top: float, right: float, bottom: float) -> tuple[int, int, int, int]|tuple[None, None, None, None]:
+        if self.image is None:
+            return None, None, None, None
+        zx = self.zoomed_image.shape[1] / self.image.shape[1]
+        zy = self.zoomed_image.shape[0] / self.image.shape[0]
         ox, oy = self.image_ox, self.image_oy
         v_x = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
         v_y = (self.regions['preview'].GetTop() + self.regions['preview'].GetBottom()) * .5
-        v_x0 = v_x + (left - ox) * self.zoom_ratio
-        v_y0 = v_y + (top - oy) * self.zoom_ratio
-        v_x1 = v_x + (right - ox) * self.zoom_ratio
-        v_y1 = v_y + (bottom - oy) * self.zoom_ratio
+        v_x0 = v_x + (left - ox) * zx
+        v_y0 = v_y + (top - oy) * zy
+        v_x1 = v_x + (right - ox) * zx
+        v_y1 = v_y + (bottom - oy) * zy
         return int(v_x0 + .5), int(v_y0 + .5), int(v_x1 + .5), int(v_y1 + .5)
 
     def __set_min_zoom_ratio(self):
@@ -164,10 +172,12 @@ class ImageViewer(wx.Panel):
             self.bitmap.CopyFromBuffer(self.buf.tobytes())
             self.Refresh()
             return
+        zx = self.zoomed_image.shape[1] / self.image.shape[1]
+        zy = self.zoomed_image.shape[0] / self.image.shape[0]
         buf_h, buf_w = self.buf.shape[:2]
         if buf_w < self.zoomed_image.shape[1]:
-            ox_min = buf_w * .5 / self.zoom_ratio
-            ox_max = self.image.shape[1] - buf_w * .5 / self.zoom_ratio
+            ox_min = buf_w * .5 / zx
+            ox_max = self.image.shape[1] - buf_w * .5 / zx
             if self.image_ox < ox_min:
                 self.image_ox = ox_min
             elif self.image_ox > ox_max:
@@ -175,19 +185,19 @@ class ImageViewer(wx.Panel):
         else:
             self.image_ox = self.image.shape[1] * .5
         if buf_h < self.zoomed_image.shape[0]:
-            oy_min = buf_h * .5 / self.zoom_ratio
-            oy_max = self.image.shape[0] - buf_h * .5 / self.zoom_ratio
+            oy_min = buf_h * .5 / zy
+            oy_max = self.image.shape[0] - buf_h * .5 / zy
             if self.image_oy < oy_min:
                 self.image_oy = oy_min
             elif self.image_oy > oy_max:
                 self.image_oy = oy_max
         else:
             self.image_oy = self.image.shape[0] * .5
-        z_ox = self.image_ox * self.zoom_ratio
-        z_oy = self.image_oy * self.zoom_ratio
+        z_ox = self.image_ox * zx
+        z_oy = self.image_oy * zy
         buf_h, buf_w = self.buf.shape[:2]
-        z_x0 = int(z_ox - (buf_w >> 1) + .5)
-        z_y0 = int(z_oy - (buf_h >> 1) + .5)
+        z_x0 = int(np.floor(z_ox - buf_w * .5 + .5))    # 負の数は切り捨て処理が必要
+        z_y0 = int(np.floor(z_oy - buf_h * .5 + .5))    # 同上
         z_x1 = z_x0 + buf_w
         z_y1 = z_y0 + buf_h
         if z_x0 < 0:
@@ -245,6 +255,7 @@ class ImageViewer(wx.Panel):
         dc = wx.PaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:
+            gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
             bmp_size = self.bitmap.GetSize()
             gc.DrawBitmap(self.bitmap, 0, 0, bmp_size.GetWidth(), bmp_size.GetHeight())
             gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))

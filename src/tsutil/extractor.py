@@ -548,6 +548,10 @@ class MainFrame(ToolFrame):
         self.__save_setting()
         event.Skip()
 
+    def on_save_menu(self, event):
+        super().on_save_menu(event)
+        self.__save_setting()
+
     def __on_save_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
             wx.MessageBox('連続画像を取り出す動画が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
