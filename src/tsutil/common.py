@@ -180,3 +180,53 @@ class PerspectivePoints(BaseModel):
     def __str__(self) -> str:
         return f'{self.left_top}-{self.right_top}-{self.right_bottom}-{self.left_bottom}'
 
+# MARK: correction data model
+
+class CorrectionDataModel(BaseModel):
+    base_frame_pos: int|None = None
+    sample_frame_pos: int|None = None
+    select_sample_frame: bool = False
+    use_deshake_correction: bool = True
+    use_rotation_correction: bool = True
+    use_perspective_correction: bool = True
+    use_overlay: bool = False
+    use_nega: bool = False
+    use_grid: bool = False
+    shaking_detection_fields: list[Rect] = []
+    rotation_angle: float|None = None
+    perspective_points: PerspectivePoints = PerspectivePoints()
+    clip: Rect = Rect()
+
+    def get_shaking_detection_field_list(self):
+        return [f'A{i + 1}: {str(item)}' for i, item in enumerate(self.shaking_detection_fields)]
+    
+    def clear(self):
+        self.base_frame_pos = None
+        self.sample_frame_pos = None
+        self.select_sample_frame: bool = False
+        self.use_deshake_correction = True
+        self.use_rotation_correction = True
+        self.use_perspective_correction = True
+        self.use_overlay = False
+        self.use_nega = False
+        self.use_grid = False
+        self.shaking_detection_fields.clear()
+        self.rotation_angle = None
+        self.perspective_points.clear()
+        self.clip.clear()
+    
+    def copy_from(self, other: 'CorrectionDataModel'):
+        self.base_frame_pos = other.base_frame_pos
+        self.sample_frame_pos = other.sample_frame_pos
+        self.select_sample_frame = other.select_sample_frame
+        self.use_deshake_correction = other.use_deshake_correction
+        self.use_rotation_correction = other.use_rotation_correction
+        self.use_perspective_correction = other.use_perspective_correction
+        self.use_overlay = other.use_overlay
+        self.use_nega = other.use_nega
+        self.use_grid = other.use_grid
+        self.shaking_detection_fields.clear()
+        self.shaking_detection_fields.extend(other.shaking_detection_fields)
+        self.rotation_angle = other.rotation_angle
+        self.perspective_points.copy_from(other.perspective_points)
+        self.clip.copy_from(other.clip)

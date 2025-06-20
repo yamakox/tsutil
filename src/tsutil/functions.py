@@ -2,6 +2,8 @@ import numpy as np
 import cv2
 from .common import *
 from PIL import Image
+from typing import TextIO
+import sys
 
 # MARK: deshaking correction
 
@@ -9,6 +11,7 @@ class DeshakingCorrection:
     def __init__(self):
         self.base_image: np.ndarray|None = None
         self.sample_image: np.ndarray|None = None
+        self.frame_index: int|None = None
         
         self.__gray_base_image = None
         self.__gray_sample_image = None
@@ -26,13 +29,15 @@ class DeshakingCorrection:
         self.base_image = base_image
         self.__gray_base_image = cv2.cvtColor(base_image, cv2.COLOR_RGB2GRAY).astype(np.float32)
 
-    def set_sample_image(self, sample_image: np.ndarray):
+    def set_sample_image(self, sample_image: np.ndarray, frame_index: int=None):
         self.sample_image = sample_image
         self.__gray_sample_image = cv2.cvtColor(sample_image, cv2.COLOR_RGB2GRAY).astype(np.float32)
+        self.frame_index = frame_index
 
-    def compute(self, shaking_detection_fields: list[Rect], rotation_angle: float = 0.0) -> np.ndarray:
+    def compute(self, shaking_detection_fields: list[Rect], rotation_angle: float = 0.0, fd: TextIO=sys.stdout) -> np.ndarray:
         if self.base_image is None or self.sample_image is None:
             raise Exception('No base image or sample image.')
+        frame_info = '' if self.frame_index is None else f'f{self.frame_index + 1:05d}: '
         h, w = self.base_image.shape[:2]
         mat_r = cv2.getRotationMatrix2D((w/2, h/2), rotation_angle, 1.0)
         mat_r =np.vstack([mat_r, (0, 0, 1)], dtype=np.float32)
@@ -48,7 +53,7 @@ class DeshakingCorrection:
                 normalize_array(self.__gray_sample_image[f.top:f.bottom, f.left:f.right]), 
                 hann
             )
-            print(f'A{i + 1}: {delta=} {response=}')
+            print(f'{frame_info}A{i + 1}: {delta=} {response=}', file=fd)
             Image.fromarray(self.base_image[f.top:f.bottom, f.left:f.right, :]).save('base.png')
             Image.fromarray(self.sample_image[f.top:f.bottom, f.left:f.right, :]).save('sample.png')
             cx, cy = f.get_center()
@@ -56,16 +61,14 @@ class DeshakingCorrection:
             sample_points.append([cx + delta[0], cy + delta[1]])
         base_points = np.array(base_points, dtype=np.float32)
         sample_points = np.array(sample_points, dtype=np.float32)
-        #print(f'{base_points=}')
-        #print(f'{sample_points=}')
+        print(f'{frame_info}{base_points=}', file=fd)
+        print(f'{frame_info}{sample_points=}', file=fd)
         mat, angle, offset = estimate_rigid_transform_homography(sample_points, base_points)
         self.estimated_matrix = mat
         self.estimated_angle = float(angle)
         self.estimated_dx = float(offset[0])
         self.estimated_dy = float(offset[1])
-        print(f'{self.estimated_angle=} {self.estimated_dx=} {self.estimated_dy=}')
-        #print(f'{mat=}')
-        #print(f'computed={compute_rigid_transform_homography(self.estimated_angle, self.estimated_dx, self.estimated_dy)}')
+        print(f'{frame_info}estimated_angle={self.estimated_angle} estimated_dx={self.estimated_dx} estimated_dy={self.estimated_dy}', file=fd)
         self.__mat = mat_r @ self.estimated_matrix
         return self.__mat
 

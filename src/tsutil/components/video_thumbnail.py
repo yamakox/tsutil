@@ -5,12 +5,14 @@ import cv2
 import time
 from pathlib import Path
 import os
+from types import SimpleNamespace
 import concurrent.futures as futures
 from numba import njit
 from ffio import FrameReader, Probe
 from .resource import resource
 from ..common import *
 from .histogram_view import HistogramView
+from ..functions import DeshakingCorrection
 
 # MARK: constants
 
@@ -145,13 +147,13 @@ class VideoThumbnail(wx.Panel):
         )
         self.loading.start()
 
-    def load_image_catalog(self, path: Path, transform=None, clip=None, output_path: Path=None):
+    def load_image_catalog(self, path: Path, correction_model: CorrectionDataModel=None, output_path: Path=None):
         self.ensure_stop_loading()
         self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
-        self.loading = threading.Thread(
+        self.loading = threading.Thread( 
             target=self.__image_catalog_load_worker, 
-            args=(path, transform, clip, output_path), 
-            daemon=True,
+            args=(path, correction_model, output_path), 
+            daemon=True, 
         )
         self.loading.start()
 
@@ -432,8 +434,7 @@ class VideoThumbnail(wx.Panel):
                 output_fd.close()
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
 
-    def __image_catalog_load_worker(self, path, transform=None, clip=None, output_path: Path=None):
-        output_fd = None
+    def __image_catalog_load_worker(self, path, correction_model, output_path):
         try:
             self.frames.clear()
             parent_path = path.parent
@@ -443,32 +444,41 @@ class VideoThumbnail(wx.Panel):
             self.progress_current = 0
             self.__update_thumbnail()
             if output_path:
-                output = dict(
+                output = SimpleNamespace(**dict(
                     fd = open(output_path, 'w'), 
+                    indexed_filenames = {}, 
                     parent_path = output_path.parent, 
                     dir_name = Path(output_path.stem), 
-                )
+                    log_fd = open(os.devnull, 'w')  # open(output_path.with_suffix('.log'), 'w'), 
+                ))
                 os.makedirs(output.parent_path / output.dir_name, exist_ok=True)
             else:
-                output = {}
+                output = None
+            if correction_model is None:
+                base_frame = None
+            else:
+                base_frame = cv2.cvtColor(cv2.imread(str(self.image_catalog[correction_model.base_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
             future_list = []
             indexed_frame = {}
-            def _load_and_save_frame(indexed_frame, index, image_path, output, transform, clip):
+            def _load_and_save_frame(indexed_frame, index, image_path, output, correction_model, base_frame):
                 frame = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
-                h, w, _ = frame.shape
                 if output:
                     image_filename = output.dir_name / image_path.name
-                    if transform:
-                        frame = cv2.warpPerspective(
-                            frame, 
-                            transform, 
-                            (frame.shape[1], frame.shape[0]), 
-                            flags=cv2.INTER_AREA
-                        )
-                    if clip:
-                        frame = frame[clip[1]:clip[3], clip[0]:clip[2], :]
+                    if correction_model is not None:
+                        deshaking_correction = DeshakingCorrection()
+                        deshaking_correction.set_base_image(base_frame)
+                        deshaking_correction.set_sample_image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), index)
+                        fields = correction_model.shaking_detection_fields if correction_model.use_deshake_correction else []
+                        angle = correction_model.rotation_angle if correction_model.use_rotation_correction else 0.0
+                        mat = deshaking_correction.compute(fields, angle, output.log_fd)
+                        if correction_model.use_perspective_correction:
+                            mat = correction_model.perspective_points.get_transform_matrix() @ mat
+                        frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
+                    if correction_model.clip:
+                        frame = frame[correction_model.clip.top:correction_model.clip.bottom, correction_model.clip.left:correction_model.clip.right, :]
                     cv2.imwrite(output.parent_path / image_filename, frame)
-                    output_fd.write(f'{str(image_filename)}\n')
+                    output.indexed_filenames[index] = str(image_filename)
+                h, w, _ = frame.shape
                 frame = cv2.cvtColor(cv2.resize(frame, ((w * THUMBNAIL_SIZE[1]) // h, THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT), cv2.COLOR_BGR2RGB)
                 if frame.dtype == np.uint16:
                     frame = (frame / 256).astype(np.uint8)
@@ -483,7 +493,7 @@ class VideoThumbnail(wx.Panel):
                     if not self.loading:
                         break
                     self.progress_current = i + 1
-                    future = executor.submit(_load_and_save_frame, indexed_frame, i, image_path, output, transform, clip)
+                    future = executor.submit(_load_and_save_frame, indexed_frame, i, image_path, output, correction_model, base_frame)
                     future_list.append(future)
                     if len(future_list) >= MAX_WORKERS2:
                         done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)
@@ -496,6 +506,9 @@ class VideoThumbnail(wx.Panel):
                 else:
                     done, not_done = futures.wait(future_list, return_when=futures.ALL_COMPLETED)
                     failures = [future for future in not_done if not future.result()]
+                    if output:
+                        for i in sorted(output.indexed_filenames.keys()):
+                            output.fd.write(output.indexed_filenames[i] + '\n')
                     if failures:
                         wx.QueueEvent(self, VideoLoadErrorEvent('連続画像ファイルの入出力処理に失敗したファイルがあります。'))
                     self.frames = [indexed_frame[i] for i in sorted(indexed_frame.keys())]
@@ -512,6 +525,7 @@ class VideoThumbnail(wx.Panel):
                         self.histogram_view.end_histogram()
                     wx.QueueEvent(self, VideoLoadedEvent())
         except Exception as e:
-            if output_fd:
-                output_fd.close()
+            if output:
+                output.fd.close()
+                output.log_fd.close()
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))

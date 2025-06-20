@@ -20,59 +20,9 @@ from .functions import DeshakingCorrection
 MARGIN = 12
 TOOL_NAME = '画像のブレ・傾き・歪みの補正'
 SETTING_EXTENSION = '.correct.json'
+CORR_SUFFIX = '_CORR'
 PNG_SUFFIX = '_PNG'
 TIFF_SUFFIX = '_TIFF'
-
-# MARK: correction data model
-
-class CorrectionDataModel(BaseModel):
-    base_frame_pos: int|None = None
-    sample_frame_pos: int|None = None
-    select_sample_frame: bool = False
-    use_deshake_correction: bool = True
-    use_rotation_correction: bool = True
-    use_perspective_correction: bool = True
-    use_overlay: bool = False
-    use_nega: bool = False
-    use_grid: bool = False
-    shaking_detection_fields: list[Rect] = []
-    rotation_angle: float|None = None
-    perspective_points: PerspectivePoints = PerspectivePoints()
-    clip: Rect = Rect()
-
-    def get_shaking_detection_field_list(self):
-        return [f'A{i + 1}: {str(item)}' for i, item in enumerate(self.shaking_detection_fields)]
-    
-    def clear(self):
-        self.base_frame_pos = None
-        self.sample_frame_pos = None
-        self.select_sample_frame: bool = False
-        self.use_deshake_correction = True
-        self.use_rotation_correction = True
-        self.use_perspective_correction = True
-        self.use_overlay = False
-        self.use_nega = False
-        self.use_grid = False
-        self.shaking_detection_fields.clear()
-        self.rotation_angle = None
-        self.perspective_points.clear()
-        self.clip.clear()
-    
-    def copy_from(self, other: 'CorrectionDataModel'):
-        self.base_frame_pos = other.base_frame_pos
-        self.sample_frame_pos = other.sample_frame_pos
-        self.select_sample_frame = other.select_sample_frame
-        self.use_deshake_correction = other.use_deshake_correction
-        self.use_rotation_correction = other.use_rotation_correction
-        self.use_perspective_correction = other.use_perspective_correction
-        self.use_overlay = other.use_overlay
-        self.use_nega = other.use_nega
-        self.use_grid = other.use_grid
-        self.shaking_detection_fields.clear()
-        self.shaking_detection_fields.extend(other.shaking_detection_fields)
-        self.rotation_angle = other.rotation_angle
-        self.perspective_points.copy_from(other.perspective_points)
-        self.clip.copy_from(other.clip)
 
 # MARK: main window
 
@@ -330,7 +280,7 @@ class MainFrame(ToolFrame):
         self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         if self.model.perspective_points.is_none():
             self.model.perspective_points.init(self.sample_frame)
-        self.deshaking_correction.set_sample_image(self.sample_frame)
+        self.deshaking_correction.set_sample_image(self.sample_frame, self.model.sample_frame_pos)
         fields = self.model.shaking_detection_fields if self.model.use_deshake_correction else []
         angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
         mat = self.deshaking_correction.compute(fields, angle)
@@ -533,10 +483,33 @@ class MainFrame(ToolFrame):
         self.__save_setting()
 
     def __on_save_button_clicked(self, event):
-        pass
+        if self.input_video_thumbnail.get_frame_count() == 0:
+            wx.MessageBox('連続画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
+            return
+
+        input_path = get_path(self.input_file_picker.GetPath())
+        output_filename = input_path.stem.removesuffix(PNG_SUFFIX).removesuffix(TIFF_SUFFIX) + CORR_SUFFIX + '.txt'
+
+        with wx.FileDialog(
+            self, 
+            '保存先の連続画像のカタログファイル名を入力してください。(連続画像のディレクトリ名にもなります)', 
+            defaultDir=str(input_path.parent),
+            defaultFile=output_filename,
+            wildcard=IMAGE_CATALOG_FILE_WILDCARD,
+            style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            self.__save_setting()
+            output_path = get_path(fileDialog.GetPath())
+            self.output_filename_text.SetValue(str(output_path))
+            self.output_video_thumbnail.load_image_catalog(input_path, self.model, output_path)
+        event.Skip()
 
     def __on_folder_button_clicked(self, event):
         path = get_path(self.output_filename_text.GetValue())
         if not path_exists(path):
+            event.Skip()
             return
         wx.LaunchDefaultApplication(str(path.parent))
+        event.Skip()
