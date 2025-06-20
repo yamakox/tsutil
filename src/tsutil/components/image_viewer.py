@@ -354,18 +354,17 @@ class ImageViewer(wx.Panel):
             self.image_ox = self.dragging_image_ox - dx
             self.image_oy = self.dragging_image_oy - dy
             self.__update_preview()
-            self.fire_mouse_over_image(x, y)
         elif self.dragging == DRAGGING_HSCROLL:
             r = self.regions['hscroll']
             ix = (x - r.GetLeft()) / r.GetWidth() * self.image.shape[1]
             self.image_ox = ix - self.dragging_x
             self.__update_preview()
-            self.fire_mouse_over_image(x, y)
         elif self.dragging == DRAGGING_VSCROLL:
             r = self.regions['vscroll']
             iy = (y - r.GetTop()) / r.GetHeight() * self.image.shape[0]
             self.image_oy = iy - self.dragging_y
             self.__update_preview()
+        if self.regions['preview'].Contains(x, y):
             self.fire_mouse_over_image(x, y)
 
     def on_mouse_leave(self, event):
