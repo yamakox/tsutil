@@ -12,6 +12,7 @@ from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VI
 from .components.image_viewer import ImageViewer
 from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED
 from .components.deshaking_image_viewer import DeshakingImageViewer, EVT_PERSPECTIVE_POINTS_CHANGED
+from .components.clip_image_viewer import ClipImageViewer, EVT_CLIP_RECT_CHANGED
 from .functions import DeshakingCorrection
 
 # MARK: constants
@@ -231,10 +232,11 @@ class MainFrame(ToolFrame):
         self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields)
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
-        self.deshaking_image_viewer = DeshakingImageViewer(image_panel, self.model.perspective_points, self.model.shaking_detection_fields, False)
+        self.deshaking_image_viewer = DeshakingImageViewer(image_panel, self.model.perspective_points, self.model.shaking_detection_fields)
         self.deshaking_image_viewer.Bind(EVT_PERSPECTIVE_POINTS_CHANGED, self.__on_perspective_points_changed)
         image_sizer.Add(self.deshaking_image_viewer, flag=wx.EXPAND)
-        self.clip_image_viewer = ImageViewer(image_panel)
+        self.clip_image_viewer = ClipImageViewer(image_panel, self.model.clip)
+        self.clip_image_viewer.Bind(EVT_CLIP_RECT_CHANGED, self.__on_clip_rect_changed)
         image_sizer.Add(self.clip_image_viewer, flag=wx.EXPAND)
         image_panel.SetSizerAndFit(image_sizer)
         sizer.Add(image_panel, flag=wx.EXPAND)
@@ -347,7 +349,10 @@ class MainFrame(ToolFrame):
         if self.model.use_perspective_correction:
             mat = self.model.perspective_points.get_transform_matrix() @ mat
         corrected_frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
+        if self.model.clip.is_none():
+            self.model.clip.init(0, 0, frame.shape[1], frame.shape[0])
         self.clip_image_viewer.set_image(corrected_frame)
+        self.clip_image_viewer.set_grid(self.model.use_grid)
 
     def __sync_shaking_detection_area_listbox(self):
         field_list = self.model.get_shaking_detection_field_list()
@@ -477,6 +482,9 @@ class MainFrame(ToolFrame):
         self.__set_sample_image_viewer()
 
     def __on_perspective_points_changed(self, event):
+        self.__set_sample_image_viewer()
+
+    def __on_clip_rect_changed(self, event):
         self.__set_sample_image_viewer()
 
     def __on_shaking_detection_area_listbox(self, event):
