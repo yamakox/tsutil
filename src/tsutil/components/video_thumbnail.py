@@ -474,7 +474,7 @@ class VideoThumbnail(wx.Panel):
                         if correction_model.use_perspective_correction:
                             mat = correction_model.perspective_points.get_transform_matrix() @ mat
                         frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
-                    if correction_model.clip:
+                    if not correction_model.clip.is_none():
                         frame = frame[correction_model.clip.top:correction_model.clip.bottom, correction_model.clip.left:correction_model.clip.right, :]
                     cv2.imwrite(output.parent_path / image_filename, frame)
                     output.indexed_filenames[index] = str(image_filename)
