@@ -124,3 +124,14 @@ def normalize_array(src: np.ndarray) -> np.ndarray:
     if min == max:
         return np.full_like(src, 0)
     return (src - min) / (max - min)
+
+def unsharp_mask(img):
+    kernel = _make_sharp_kernel(1.5)
+    return np.clip(cv2.filter2D(img, -1, kernel), 0, 255).astype(np.uint8)
+
+def _make_sharp_kernel(k):
+    return np.array([
+        [-k / 9, -k / 9, -k / 9],
+        [-k / 9, 1 + 8 * k / 9, -k / 9],
+        [-k / 9, -k / 9, -k / 9]
+    ], np.float32)

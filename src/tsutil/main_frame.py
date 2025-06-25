@@ -2,7 +2,7 @@ import wx
 import wx.adv
 import sys
 from .common import *
-from . import trimmer, extractor, corrector
+from . import trimmer, extractor, corrector, adjuster
 from typing import Callable
 from importlib.metadata import version, metadata
 
@@ -27,15 +27,17 @@ class MainFrame(wx.Frame):
         frame_sizer = wx.GridSizer(rows=1, cols=1, gap=wx.Size(0, 0))
         panel = wx.Panel(self)
 
-        sizer = wx.GridSizer(rows=3, cols=1, gap=wx.Size(0, MARGIN))
+        sizer = wx.GridSizer(cols=1, gap=wx.Size(0, MARGIN))
 
         buttons = [
             ('【 動画のトリミング 】', 'カメラで撮影した動画の不要な前後部分を無劣化で削除します。', self.__launch_trimmer),
             ('【 動画から連続画像の展開 】', 'カメラで撮影した動画の各フレームを連続した画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。', self.__launch_extractor),
             ('【 画像のブレ・傾き・歪みの補正 】', '手持ち撮影した動画から展開した画像ファイルの\nブレ、水平出し、台形補正を行います。', self.__launch_corrector),
+            ('【 ステッチング画像の縦横比の調整 】', 'ステッチング後の画像ファイルに対して\n一両ずつ長さと高さを調整します。', self.__launch_adjuster),
         ]
         for i, (mainLabel, note, callback) in enumerate(buttons):
             btn = self.__make_button(panel, mainLabel, note, callback)
+            btn.DisableFocusFromKeyboard()
             if i == 0:
                 sizer.Add(btn, flag=wx.EXPAND)
             else:
@@ -63,6 +65,10 @@ class MainFrame(wx.Frame):
 
     def __launch_corrector(self, event):
         frame = corrector.MainFrame(self)
+        frame.Show()
+
+    def __launch_adjuster(self, event):
+        frame = adjuster.MainFrame(self)
         frame.Show()
 
     def __on_close(self, event):

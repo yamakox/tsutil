@@ -27,17 +27,28 @@ class MouseOverImageEvent(wx.ThreadEvent):
         self.image_x = image_x
         self.image_y = image_y
 
+myEVT_MOUSE_CLICK_IMAGE = wx.NewEventType()
+EVT_MOUSE_CLICK_IMAGE = wx.PyEventBinder(myEVT_MOUSE_CLICK_IMAGE)
+
+class MouseClickImageEvent(wx.ThreadEvent):
+    def __init__(self, image_x = None, image_y = None):
+        super().__init__(myEVT_MOUSE_CLICK_IMAGE)
+        self.image_x = image_x
+        self.image_y = image_y
+
 # MARK: main class
 
 class ImageViewer(wx.Panel):
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, min_size=MIN_SIZE, enable_zoom=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.SetMinSize(parent.FromDIP(wx.Size(*MIN_SIZE)))
+        self.SetMinSize(parent.FromDIP(wx.Size(*min_size)))
+        self.enable_zoom = enable_zoom
         self.image = None
         self.image_ox = 0.0
         self.image_oy = 0.0
         self.zoom_ratio = 0.0
         self.use_grid = False
+        self.grid_center_only = False
         self.min_zoom_ratio = 0.0
         self.zoomed_image = None
         self.dragging = DRAGGING_NONE
@@ -58,11 +69,13 @@ class ImageViewer(wx.Panel):
         self.Bind(wx.EVT_LEFT_UP, self.on_mouse_up)
         self.Bind(wx.EVT_MOTION, self.on_mouse_move)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.on_mouse_leave)
-        self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
-        self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
+        if enable_zoom:
+            self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
+            self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
 
-    def set_grid(self, use_grid: bool=True):
+    def set_grid(self, use_grid: bool=True, center_only=False):
         self.use_grid = use_grid
+        self.grid_center_only = center_only
         self.Refresh()
 
     def clear(self):
@@ -225,13 +238,18 @@ class ImageViewer(wx.Panel):
         self.Refresh()
 
     def fire_mouse_over_image(self, x = None, y = None):
-        if self.image is None:
-            wx.QueueEvent(self, MouseOverImageEvent())
-        elif x is None:
+        if self.image is None or x is None:
             wx.QueueEvent(self, MouseOverImageEvent())
         else:
-            x, y = self.get_image_position(mouse_pos=(x, y))
-            wx.QueueEvent(self, MouseOverImageEvent(x, y))
+            ix, iy = self.get_image_position(mouse_pos=(x, y))
+            wx.QueueEvent(self, MouseOverImageEvent(ix, iy))
+
+    def fire_mouse_click_image(self, x = None, y = None):
+        if self.image is None or x is None:
+            wx.QueueEvent(self, MouseClickImageEvent())
+        else:
+            ix, iy = self.get_image_position(mouse_pos=(x, y))
+            wx.QueueEvent(self, MouseClickImageEvent(ix, iy))
 
     def on_size(self, event):
         size = event.GetSize()
@@ -279,13 +297,23 @@ class ImageViewer(wx.Panel):
                 gc.DrawRectangle(w, vsl_min, SCROLL_BAR_SIZE, vsl_max - vsl_min)
             if self.use_grid:
                 rgn = self.regions['preview']
+                rgn_ox = (rgn.left + rgn.right) // 2
+                rgn_oy = (rgn.top + rgn.bottom) // 2
                 gc.Clip(wx.Region(rgn))
                 gc.SetPen(wx.Pen(wx.Colour(80, 80, 80, 160)))
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
-                for x in range(rgn.left, rgn.right, GRID_SIZE):
-                    gc.DrawRectangle(x, rgn.top, .5, rgn.bottom - rgn.top)
-                for y in range(rgn.top, rgn.bottom, GRID_SIZE):
-                    gc.DrawRectangle(rgn.left, y, rgn.right - rgn.left, .5)
+                if self.grid_center_only:
+                    gc.DrawRectangle(rgn_ox, rgn.top, .5, rgn.bottom - rgn.top)
+                    gc.DrawRectangle(rgn.left, rgn_oy, rgn.right - rgn.left, .5)
+                else:
+                    for x in range(0, (rgn.right - rgn.left) // 2, GRID_SIZE):
+                        gc.DrawRectangle(rgn_ox + x, rgn.top, .5, rgn.bottom - rgn.top)
+                        if x:
+                            gc.DrawRectangle(rgn_ox - x, rgn.top, .5, rgn.bottom - rgn.top)
+                    for y in range(0, (rgn.bottom - rgn.top) // 2, GRID_SIZE):
+                        gc.DrawRectangle(rgn.left, rgn_oy + y, rgn.right - rgn.left, .5)
+                        if y:
+                            gc.DrawRectangle(rgn.left, rgn_oy - y, rgn.right - rgn.left, .5)
                 gc.ResetClip()
 
     def on_mouse_down(self, event):
@@ -336,13 +364,16 @@ class ImageViewer(wx.Panel):
             return
         x = event.GetX()
         y = event.GetY()
+        if self.dragging == DRAGGING_PREVIEW:
+            if self.dragging_x == x and self.dragging_y == y:
+                self.fire_mouse_click_image(x, y)
+            if not self.regions['preview'].Contains(x, y):
+                self.fire_mouse_over_image()
         self.dragging = DRAGGING_NONE
         self.dragging_x = 0
         self.dragging_y = 0
         self.dragging_image_ox = 0
         self.dragging_image_oy = 0
-        if not self.regions['preview'].Contains(x, y):
-            self.fire_mouse_over_image()
 
     def on_mouse_move(self, event):
         if self.image is None:
