@@ -2,6 +2,17 @@ from pathlib import Path
 from pydantic import BaseModel
 import numpy as np
 import cv2
+import logging
+import os
+
+# MARK: logger "tsutil"
+
+logger: logging.Logger|None = logging.getLogger('tsutil')
+debug = os.environ.get('DEBUG')
+logger.setLevel(logging.DEBUG if debug else logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(message)s", 
+)
 
 # MARK: constants
 
@@ -91,6 +102,10 @@ class Rect(BaseModel):
         self.top = top
         self.right = right
         self.bottom = bottom
+
+    def contains(self, pos: Point|tuple[int, int]):
+        x, y = pos if type(pos) is tuple else (pos.x, pos.y)
+        return self.left <= x < self.right and self.top <= y < self.bottom
 
     def __str__(self) -> str:
         x, y = self.get_center()

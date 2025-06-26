@@ -123,7 +123,7 @@ class MainFrame(ToolFrame):
             ss = probe.duration * start / total_count
             to = probe.duration * (end - 1) / total_count
             args = ['ffmpeg', '-loglevel', 'error', '-ss', str(ss), '-to', str(to), '-i', str(input_path), '-c', 'copy', '-y', str(output_path)]
-            print(args)
+            logger.debug(args)
             process = Popen(args, stdout=PIPE, stderr=PIPE, encoding='utf-8')
             stdout_data, stderr_data = process.communicate()
             if process.returncode != 0:

@@ -75,8 +75,6 @@ class DeshakingCorrection:
 # MARK: functions
 
 def estimate_rigid_transform_homography(src1: np.ndarray, src2: np.ndarray) -> tuple[np.ndarray, np.float32, np.ndarray]:
-    # NOTE: ChatGPTによるコード。
-
     # 1. 重心で中心化
     centroid1 = np.mean(src1, axis=0)
     centroid2 = np.mean(src2, axis=0)
@@ -125,8 +123,8 @@ def normalize_array(src: np.ndarray) -> np.ndarray:
         return np.full_like(src, 0)
     return (src - min) / (max - min)
 
-def unsharp_mask(img):
-    kernel = _make_sharp_kernel(1.5)
+def unsharp_mask(img: np.ndarray, k: float=1.5):
+    kernel = _make_sharp_kernel(k)
     return np.clip(cv2.filter2D(img, -1, kernel), 0, 255).astype(np.uint8)
 
 def _make_sharp_kernel(k):
@@ -135,3 +133,13 @@ def _make_sharp_kernel(k):
         [-k / 9, 1 + 8 * k / 9, -k / 9],
         [-k / 9, -k / 9, -k / 9]
     ], np.float32)
+
+def sigmoid_space(start, stop, n, c=10):
+    sigmoid = 1 / (1 + np.exp(-np.linspace(-c, c, n)))
+    sigmoid = (sigmoid - sigmoid.min()) / (sigmoid.max() - sigmoid.min())
+    return start + (stop - start) * sigmoid
+
+def sin_space(start, stop, n):
+    s = np.sin(np.linspace(-np.pi/2, np.pi/2, n))
+    s = (s - s.min()) / (s.max() - s.min())
+    return start + (stop - start) * s

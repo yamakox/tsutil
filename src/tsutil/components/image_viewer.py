@@ -15,6 +15,7 @@ DRAGGING_HSCROLL = 2
 DRAGGING_VSCROLL = 3
 DRAGGING_ZOOM = 4
 GRID_SIZE = 50
+PROGRESS_BAR_HEIGHT = 10
 
 # MARK: events
 
@@ -56,6 +57,8 @@ class ImageViewer(wx.Panel):
         self.dragging_y = 0
         self.dragging_image_ox = 0
         self.dragging_image_oy = 0
+        self.progress_total = 0
+        self.progress_current = 0
         self.buf = None
         self.bitmap = None
         self.regions = {}
@@ -89,6 +92,8 @@ class ImageViewer(wx.Panel):
         self.dragging_y = 0
         self.dragging_image_ox = 0
         self.dragging_image_oy = 0
+        self.progress_total = 0
+        self.progress_current = 0
         self.__update_preview()
 
     def set_image(self, image):
@@ -155,6 +160,11 @@ class ImageViewer(wx.Panel):
         v_x1 = v_x + (right - ox) * zx
         v_y1 = v_y + (bottom - oy) * zy
         return int(v_x0 + .5), int(v_y0 + .5), int(v_x1 + .5), int(v_y1 + .5)
+
+    def set_progress(self, progress_total, progress_count):
+        self.progress_total = progress_total
+        self.progress_current = progress_count
+        self.Refresh()
 
     def __set_min_zoom_ratio(self):
         if self.buf is not None and self.image is not None:
@@ -315,6 +325,14 @@ class ImageViewer(wx.Panel):
                         if y:
                             gc.DrawRectangle(rgn.left, rgn_oy - y, rgn.right - rgn.left, .5)
                 gc.ResetClip()
+            if self.progress_total > 0:
+                rgn = self.regions['preview']
+                gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))
+                gc.DrawRectangle(rgn.GetLeft(), rgn.GetBottom() - PROGRESS_BAR_HEIGHT, 
+                                 rgn.GetWidth(), PROGRESS_BAR_HEIGHT)
+                gc.SetBrush(wx.Brush(wx.Colour(0, 255, 64, 255)))
+                gc.DrawRectangle(rgn.GetLeft() + 1, rgn.GetBottom() - PROGRESS_BAR_HEIGHT + 1, 
+                                 min(self.progress_current * rgn.GetWidth() // self.progress_total, rgn.GetWidth() - 2), PROGRESS_BAR_HEIGHT - 2)
 
     def on_mouse_down(self, event):
         if self.image is None:
@@ -410,7 +428,7 @@ class ImageViewer(wx.Panel):
         y = event.GetY()
         zoom = self.zoom_ratio
         zoom *= 1.0 + event.GetWheelRotation() * .001
-        #print(f'{event.GetWheelRotation()=} {self.zoom_ratio=} {self.min_zoom_ratio=}')
+        #logger.debug(f'{event.GetWheelRotation()=} {self.zoom_ratio=} {self.min_zoom_ratio=}')
         self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
         self.__zoom_and_update_preview()
         self.fire_mouse_over_image(x, y)

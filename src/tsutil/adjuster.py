@@ -237,6 +237,16 @@ class MainFrame(ToolFrame):
         setting_sizer.AddGrowableRow(row)
         row += 1
 
+        option_panel = wx.Panel(setting_panel)
+        option_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(0, 4))
+        option_sizer.AddGrowableCol(0)
+        option_sizer.Add(wx.StaticText(option_panel, label='アンシャープマスクの適用 (0.0: 適用しない):', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.5", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        option_panel.SetSizerAndFit(option_sizer)
+        setting_sizer.Add(option_panel, flag=wx.EXPAND)
+        row += 1
+
         save_button = wx.Button(setting_panel, label='調整したステッチング画像を保存する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
         setting_sizer.Add(save_button, flag=wx.EXPAND)
@@ -332,9 +342,12 @@ class MainFrame(ToolFrame):
         margin = get_spin_ctrl_value(self.space)
         dst_width += margin * 2
 
-        print(f'resize from {w}x{h} to {dst_width}x{dst_height}')
+        logger.debug(f'resize from {w}x{h} to {dst_width}x{dst_height}')
 
         buf = np.zeros((dst_height, dst_width, 3), dtype=np.uint8)
+        if self.positions[0] < margin or img.shape[1] - self.positions[-1] < margin:
+            max_space = min(self.positions[0], img.shape[1] - self.positions[-1])
+            raise Exception('余白を{max_space}以下にしてください。')
         buf[:, :margin, :] = img[:, self.positions[0]-margin:self.positions[0], :]
         x = margin
         for i, dw in enumerate(dst_widths):
@@ -346,7 +359,9 @@ class MainFrame(ToolFrame):
             )
             x = x1
         buf[:, x:, :] = img[:, self.positions[-1]:self.positions[-1]+margin, :]
-        buf = unsharp_mask(buf)
+        unsharp_mask_parameter = get_spin_ctrl_value(self.unsharp_mask_parameter)
+        if unsharp_mask_parameter > 0.0:
+            buf = unsharp_mask(buf, unsharp_mask_parameter)
         return buf
 
     def __on_input_file_changed(self, event):

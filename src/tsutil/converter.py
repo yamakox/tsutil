@@ -1,0 +1,328 @@
+import wx
+import wx.adv
+from pathlib import Path
+from pydantic import BaseModel
+from PIL import Image
+import cv2
+import threading
+from ffio import FrameWriter
+from .common import *
+from .tool_frame import ToolFrame
+from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE
+from .functions import sin_space
+
+Image.MAX_IMAGE_PIXELS = 400000 * 3840
+
+# MARK: constants
+
+MARGIN = 16
+THUMBNAIL_HEIGHT = 100
+THUMBNAIL_SIZE = (1000, THUMBNAIL_HEIGHT + SCROLL_BAR_SIZE)
+TOOL_NAME = 'ステッチング画像から動画に変換'
+
+class MovieSize(BaseModel):
+    width: int = 1280
+    height: int = 720
+    description: str = 'HD'
+
+class ThumbHeight(BaseModel):
+    value: float = 1.0
+    description: str = 'x 1.0'
+
+class FrameRate(BaseModel):
+    value: int = 60
+    description: str = '60秒'
+
+MOVIE_SIZES = [
+    MovieSize(width=1280, height=720, description='HD (1280x720)'),
+    MovieSize(width=1920, height=1080, description='フルHD (1920x1080)'),
+    MovieSize(width=3840, height=2160, description='4K (3840x2160)'),
+]
+
+THUMB_HEIGHTS = [
+    ThumbHeight(value=1.0, description='サムネイルあり'),
+    ThumbHeight(value=0.0, description='サムネイルなし'),
+    ThumbHeight(value=1.5, description='高さを1.5倍にする'),
+    ThumbHeight(value=2.0, description='高さを2.0倍にする'),
+]
+
+FRAME_RATES = [
+    FrameRate(value=60, description='60 fps'),
+    FrameRate(value=30, description='30 fps'),
+    FrameRate(value=15, description='15 fps'),
+]
+
+# MARK: events
+
+myEVT_MOVIE_SAVING = wx.NewEventType()
+EVT_MOVIE_SAVING = wx.PyEventBinder(myEVT_MOVIE_SAVING)
+
+class MovieSavingEvent(wx.ThreadEvent):
+    def __init__(self, current, total):
+        super().__init__(myEVT_MOVIE_SAVING)
+        self.current = current
+        self.total = total
+
+# MARK: main window
+
+class MainFrame(ToolFrame):
+    def __init__(self, parent: wx.Window|None = None, *args, **kw):
+        super().__init__(parent, title=TOOL_NAME, *args, **kw)
+        self.file_menu_save.Enable(False)
+        self.raw_image = None
+        self.saving = None
+
+        frame_sizer = wx.GridSizer(rows=1, cols=1, gap=wx.Size(0, 0))
+        panel = wx.Panel(self)
+        sizer = wx.FlexGridSizer(rows=0, cols=1, gap=wx.Size(0, 0))
+        sizer.AddGrowableCol(0)
+        row = 0
+
+        # input file panel
+        input_file_panel = wx.Panel(panel)
+        input_file_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
+        input_file_sizer.AddGrowableCol(1)
+        input_file_sizer.Add(wx.StaticText(input_file_panel, label='動画にするステッチング画像ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        self.input_file_picker = wx.FilePickerCtrl(
+            input_file_panel,
+            message='ステッチング画像ファイルを選択してください。',
+            wildcard=IMAGE_FILE_WILDCARD,
+            style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
+        )
+        self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
+        input_file_sizer.Add(self.input_file_picker, flag=wx.EXPAND)
+        input_file_panel.SetSizerAndFit(input_file_sizer)
+        sizer.Add(input_file_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        row += 1
+
+        # input image thumbnail
+        self.input_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
+        sizer.Add(self.input_image_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        row += 1
+
+        # setting panel
+        setting_panel = self.__make_setting_panel(panel)
+        sizer.Add(setting_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.AddGrowableRow(row)
+        row += 1
+
+        # save button
+        save_button = wx.Button(panel, label='ステッチング画像から動画に変換する...')
+        save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
+        sizer.Add(save_button, flag=wx.ALIGN_CENTER)
+
+
+        # output file panel
+        output_file_panel = wx.Panel(panel)
+        output_file_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
+        output_file_sizer.AddGrowableCol(1)
+        output_file_sizer.Add(wx.StaticText(output_file_panel, label='動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
+        output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
+        folder_button = wx.Button(output_file_panel, label='フォルダを開く')
+        folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
+        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_panel.SetSizerAndFit(output_file_sizer)
+        sizer.Add(output_file_panel, flag=wx.EXPAND|wx.TOP, border=MARGIN)
+        row += 1
+
+        panel.SetSizer(sizer)
+
+        frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=16)
+        self.SetSizerAndFit(frame_sizer)
+
+        self.Bind(EVT_MOVIE_SAVING, self.__on_movie_saving)
+
+    def __make_setting_panel(self, parent):
+        panel = wx.Panel(parent)
+        sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(100, 0))
+        sizer.AddGrowableRow(0)
+        sizer.AddGrowableCol(0)
+
+        left_panel = wx.Panel(panel)
+        left_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(8, 8))
+        left_sizer.AddGrowableCol(0)
+
+        left_sizer.Add(wx.StaticText(left_panel, label='動画のサイズ:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.movie_size_selector = wx.Choice(left_panel)
+        self.movie_size_selector.Append([i.description for i in MOVIE_SIZES])
+        left_sizer.Add(self.movie_size_selector, flag=wx.EXPAND)
+
+        left_sizer.Add(wx.StaticText(left_panel, label='サムネイル:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.thumb_height_selector = wx.Choice(left_panel)
+        self.thumb_height_selector.Append([i.description for i in THUMB_HEIGHTS])
+        left_sizer.Add(self.thumb_height_selector, flag=wx.EXPAND)
+
+        left_sizer.Add(wx.StaticText(left_panel, label='動画の秒数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.second = wx.SpinCtrl(left_panel, value="60", min=10, max=180, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        left_sizer.Add(self.second, flag=wx.EXPAND)
+
+        left_sizer.Add(wx.StaticText(left_panel, label='フレームレート:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.frame_rate_selector = wx.Choice(left_panel)
+        self.frame_rate_selector.Append([i.description for i in FRAME_RATES])
+        left_sizer.Add(self.frame_rate_selector, flag=wx.EXPAND)
+
+        left_panel.SetSizerAndFit(left_sizer)
+        sizer.Add(left_panel, flag=wx.ALIGN_LEFT)
+
+        right_panel = wx.Panel(panel)
+        right_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(8, 8))
+        right_sizer.AddGrowableCol(0)
+
+        self.ltr_button = wx.RadioButton(right_panel, label='左から右へスクロール', style=wx.RB_GROUP)
+        self.ltr_button.SetValue(True)
+        right_sizer.Add(self.ltr_button, flag=wx.ALIGN_LEFT)
+        self.rtl_button = wx.RadioButton(right_panel, label='右から左へスクロール')
+        right_sizer.Add(self.rtl_button, flag=wx.ALIGN_LEFT|wx.BOTTOM, border=MARGIN)
+
+        self.loop_no_button = wx.RadioButton(right_panel, label='終端に達したら動画は終了する(ループしない)', style=wx.RB_GROUP)
+        self.loop_no_button.SetValue(True)
+        right_sizer.Add(self.loop_no_button, flag=wx.ALIGN_LEFT)
+        self.loop_forward_button = wx.RadioButton(right_panel, label='終端に達したら先頭に戻る(ループする)')
+        right_sizer.Add(self.loop_forward_button, flag=wx.ALIGN_LEFT)
+        self.loop_reverse_button = wx.RadioButton(right_panel, label='終端に達したら反対方向に戻る(ループする)')
+        right_sizer.Add(self.loop_reverse_button, flag=wx.ALIGN_LEFT|wx.BOTTOM, border=MARGIN)
+
+        right_panel.SetSizerAndFit(right_sizer)
+        sizer.Add(right_panel, flag=wx.ALIGN_LEFT)
+
+        panel.SetSizerAndFit(sizer)
+        return panel
+
+    def __clear(self):
+        self.raw_image = None
+
+    def __ensure_stop_saving(self):
+        if self.saving:
+            th = self.saving
+            self.saving = None
+            th.join()
+
+    def __make_movie(self, output_path):
+        if self.raw_image is None:
+            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            return
+        try:
+            self.__ensure_stop_saving()
+            movie_size = MOVIE_SIZES[self.movie_size_selector.GetSelection()]
+            thumb_height = THUMB_HEIGHTS[self.thumb_height_selector.GetSelection()]
+            seconds = get_spin_ctrl_value(self.second)
+            frame_rate = FRAME_RATES[self.frame_rate_selector.GetSelection()]
+            direction = 1 if self.ltr_button.GetValue() else -1
+            loop = None
+            if self.loop_forward_button.GetValue():
+                loop = 'fwd'
+            elif self.loop_reverse_button.GetValue():
+                loop = 'rev'
+        except Exception as excep:
+            wx.MessageBox('入力パラメータエラー: ' + str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+        
+        self.saving = threading.Thread(
+            target=self.__movie_save_worker, 
+            args=(output_path, movie_size, thumb_height, seconds, frame_rate, direction, loop), 
+            daemon=True, 
+        )
+        self.saving.start()
+
+    def __movie_save_worker(self, output_path, movie_size, thumb_height, seconds, frame_rate, direction, loop):
+        thumb_img = None
+        thumb_buf = None
+        thumb_size = [0, 0]
+        if thumb_height.value > 0:
+            thumb_size = [movie_size.width, int(thumb_height.value * self.raw_image.shape[0] * movie_size.width / self.raw_image.shape[1] + .5)]
+            thumb_img = cv2.resize(self.raw_image, thumb_size, interpolation=cv2.INTER_AREA)
+        h = movie_size.height - thumb_size[1]
+        w = int((self.raw_image.shape[1] * h) / self.raw_image.shape[0] + .5)
+        if thumb_img is not None:
+            thumb_w = int((movie_size.width * movie_size.width) / w + .5)
+            thumb_ox = 0
+        img = cv2.resize(self.raw_image, (w, h), interpolation=cv2.INTER_AREA)
+        if loop == 'fwd':
+            if direction > 0:
+                img = np.hstack((img, img[:, :movie_size.width, :]))
+                if thumb_img is not None:
+                    thumb_img = np.hstack((thumb_img, thumb_img[:, :thumb_w, :]))
+            else:
+                img = np.hstack((img[:, -movie_size.width:, :], img))
+                if thumb_img is not None:
+                    thumb_img = np.hstack((thumb_img[:, -thumb_w:, :], thumb_img))
+                    thumb_ox = thumb_w
+        if thumb_img is not None:
+            thumb_buf = np.array(thumb_img)
+        frame_count = frame_rate.value * seconds
+        x_max = img.shape[1] - movie_size.width
+        if loop == 'rev':
+            x_positions = np.hstack((
+                sin_space(0, x_max, frame_count // 2).astype(int),
+                sin_space(x_max, 0, frame_count // 2).astype(int),
+            ))
+        else:
+            x_positions = np.linspace(0, x_max, frame_count, dtype=int)
+        if direction < 0:
+            x_positions = x_max - x_positions
+        with FrameWriter(str(output_path), size=(movie_size.width, movie_size.height), fps=frame_rate.value, qmax=16) as writer:
+            for i, x in enumerate(x_positions):
+                if self.saving is None:
+                    break
+                wx.QueueEvent(self, MovieSavingEvent(i + 1, len(x_positions)))
+                writer.frame[(movie_size.height - h):, :, :] = img[:, x:(x + movie_size.width), :]
+                if thumb_img is not None:
+                    _x = int(thumb_img.shape[1] * x / img.shape[1] + .5)
+                    thumb_buf[...] = thumb_img[...]
+                    thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + np.array((255, 255, 255), dtype=int)) // 2).astype(np.uint8)
+                    writer.frame[:thumb_size[1], :, :] = thumb_buf[:, thumb_ox:thumb_ox+thumb_size[0], :]
+                    if direction > 0 and _x + thumb_w > thumb_size[0]:
+                        writer.frame[:thumb_size[1], :thumb_w, :] = thumb_buf[:, -thumb_w:, :]
+                    elif direction < 0 and _x < thumb_ox:
+                        writer.frame[:thumb_size[1], -thumb_w:, :] = thumb_buf[:, :thumb_w, :]
+                writer.write_frame()
+        wx.QueueEvent(self, MovieSavingEvent(0, 0))
+
+    def __on_movie_saving(self, event):
+        self.input_image_thumbnail.set_progress(event.total, event.current)
+
+    def __on_input_file_changed(self, event):
+        path = get_path(self.input_file_picker.GetPath())
+        if not path_exists(path):
+            event.Skip()
+            return
+        self.__clear()
+        self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        self.thumb_ratio = THUMBNAIL_HEIGHT / self.raw_image.shape[0]
+        self.input_image_thumbnail.set_image(cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA))
+        self.input_image_thumbnail.set_image_zoom_position(0, THUMBNAIL_HEIGHT//2, 1.0)
+        event.Skip()
+
+    def __on_save_button_clicked(self, event):
+        if self.raw_image is None:
+            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
+            return
+
+        input_path = get_path(self.input_file_picker.GetPath())
+        output_filename = input_path.with_suffix('.mp4')
+
+        with wx.FileDialog(
+            self, 
+            '動画の保存先ファイル名を入力してください。', 
+            defaultDir=str(input_path.parent),
+            defaultFile=output_filename.name,
+            wildcard=MOVIE_FILE_WILDCARD,
+            style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            output_path = get_path(fileDialog.GetPath())
+            self.output_filename_text.SetValue(str(output_path))
+            try:
+                self.__make_movie(output_path)
+            except Exception as excep:
+                wx.MessageBox(str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+        event.Skip()
+
+    def __on_folder_button_clicked(self, event):
+        path = get_path(self.output_filename_text.GetValue())
+        if not path_exists(path):
+            event.Skip()
+            return
+        wx.LaunchDefaultApplication(str(path.parent))
+        event.Skip()

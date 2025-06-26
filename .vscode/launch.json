@@ -15,6 +15,9 @@
             "**/*.pyw"
           ] 
         },
+        "env": {
+          "DEBUG": "1"
+        },
         "justMyCode": true
       }
     ]

@@ -16,6 +16,14 @@ class FieldAddedEvent(wx.ThreadEvent):
         super().__init__(myEVT_FIELD_ADDED)
         self.field = field
 
+myEVT_FIELD_DELETED = wx.NewEventType()
+EVT_FIELD_DELETED = wx.PyEventBinder(myEVT_FIELD_DELETED)
+
+class FieldDeletedEvent(wx.ThreadEvent):
+    def __init__(self, field: Rect):
+        super().__init__(myEVT_FIELD_DELETED)
+        self.field = field
+
 # MARK: main class
 
 class BaseImageViewer(ImageViewer):
@@ -74,6 +82,10 @@ class BaseImageViewer(ImageViewer):
         y = event.GetY()
         ix, iy = self.get_image_position(mouse_pos=(x, y))
         if self.field_add_mode and self.regions['preview'].Contains(x, y) and ix is not None:
+            fields = [field for field in self.fields if field.contains((ix, iy))]
+            if fields:
+                wx.QueueEvent(self, FieldDeletedEvent(fields[0]))
+                return
             self.dragging = DRAGGING_RECT
             self.dragging_rect = Rect(left=ix, top=iy, right=ix, bottom=iy)
         else:
@@ -83,11 +95,13 @@ class BaseImageViewer(ImageViewer):
         if self.image is None:
             return
         if self.dragging == DRAGGING_RECT:
-            if self.dragging_rect.right < self.dragging_rect.left:
-                self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left
-            if self.dragging_rect.bottom < self.dragging_rect.top:
-                self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
-            wx.QueueEvent(self, FieldAddedEvent(self.dragging_rect))
+            sz = self.dragging_rect.get_size()
+            if sz[0] * sz[1]:
+                if self.dragging_rect.right < self.dragging_rect.left:
+                    self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left
+                if self.dragging_rect.bottom < self.dragging_rect.top:
+                    self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
+                wx.QueueEvent(self, FieldAddedEvent(self.dragging_rect))
             self.dragging = DRAGGING_NONE
             self.dragging_rect = None
             self.Refresh()

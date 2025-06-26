@@ -178,7 +178,7 @@ class VideoThumbnail(wx.Panel):
             return 0, 0
         start = len(self.frames) * self.start_pos // THUMBNAIL_SIZE[0]
         end = len(self.frames) * self.end_pos // THUMBNAIL_SIZE[0]
-        print(f'{start=} {end=} {len(self.frames)=}')
+        logger.debug(f'{start=} {end=} {len(self.frames)=}')
         return start, end
 
     def get_frame_position(self):
@@ -194,6 +194,11 @@ class VideoThumbnail(wx.Panel):
         if self.loading:
             return []
         return self.image_catalog
+
+    def set_progress(self, progress_total, progress_count):
+        self.progress_total = progress_total
+        self.progress_current = progress_count
+        self.Refresh()
 
     def __update_bitmap(self):
         self.bitmap.CopyFromBuffer(self.buf.tobytes())

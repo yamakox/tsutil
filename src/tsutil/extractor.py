@@ -397,7 +397,7 @@ class MainFrame(ToolFrame):
                 saturation=get_spin_ctrl_value(self.huesaturation_saturation),
                 intensity=get_spin_ctrl_value(self.huesaturation_intensity),
             )
-        print(f'{filter_complex=}')
+        logger.debug(f'{filter_complex=}')
         return filter_complex
 
     def __make_setting_file_path(self):

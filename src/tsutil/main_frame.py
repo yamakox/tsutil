@@ -2,7 +2,7 @@ import wx
 import wx.adv
 import sys
 from .common import *
-from . import trimmer, extractor, corrector, adjuster
+from . import trimmer, extractor, corrector, adjuster, converter
 from typing import Callable
 from importlib.metadata import version, metadata
 
@@ -33,7 +33,8 @@ class MainFrame(wx.Frame):
             ('【 動画のトリミング 】', 'カメラで撮影した動画の不要な前後部分を無劣化で削除します。', self.__launch_trimmer),
             ('【 動画から連続画像の展開 】', 'カメラで撮影した動画の各フレームを連続した画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。', self.__launch_extractor),
             ('【 画像のブレ・傾き・歪みの補正 】', '手持ち撮影した動画から展開した画像ファイルの\nブレ、水平出し、台形補正を行います。', self.__launch_corrector),
-            ('【 ステッチング画像の縦横比の調整 】', 'ステッチング後の画像ファイルに対して\n一両ずつ長さと高さを調整します。', self.__launch_adjuster),
+            ('【 ステッチング画像の縦横比の調整 】', 'ステッチング後の画像ファイルに対して一両ずつ長さと高さを調整します。', self.__launch_adjuster),
+            ('【 ステッチング画像から動画に変換 】', 'ステッチング後の画像ファイルからSNSに投稿できる動画に変換します。', self.__launch_converter),
         ]
         for i, (mainLabel, note, callback) in enumerate(buttons):
             btn = self.__make_button(panel, mainLabel, note, callback)
@@ -69,6 +70,10 @@ class MainFrame(wx.Frame):
 
     def __launch_adjuster(self, event):
         frame = adjuster.MainFrame(self)
+        frame.Show()
+
+    def __launch_converter(self, event):
+        frame = converter.MainFrame(self)
         frame.Show()
 
     def __on_close(self, event):
