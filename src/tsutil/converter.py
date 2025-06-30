@@ -11,13 +11,12 @@ from .tool_frame import ToolFrame
 from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE
 from .functions import sin_space
 
-Image.MAX_IMAGE_PIXELS = 400000 * 3840
-
 # MARK: constants
 
 MARGIN = 16
 THUMBNAIL_HEIGHT = 100
 THUMBNAIL_SIZE = (1000, THUMBNAIL_HEIGHT + SCROLL_BAR_SIZE)
+THUMBNAIL_HIGHLIGHT_COLOR = np.array((255, 255, 255), dtype=int)
 TOOL_NAME = 'ステッチング画像から動画に変換'
 
 class MovieSize(BaseModel):
@@ -111,7 +110,6 @@ class MainFrame(ToolFrame):
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
         sizer.Add(save_button, flag=wx.ALIGN_CENTER)
 
-
         # output file panel
         output_file_panel = wx.Panel(panel)
         output_file_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
@@ -132,6 +130,7 @@ class MainFrame(ToolFrame):
         self.SetSizerAndFit(frame_sizer)
 
         self.Bind(EVT_MOVIE_SAVING, self.__on_movie_saving)
+        self.Bind(wx.EVT_CLOSE, self.__on_close)
 
     def __make_setting_panel(self, parent):
         panel = wx.Panel(parent)
@@ -199,9 +198,6 @@ class MainFrame(ToolFrame):
             th.join()
 
     def __make_movie(self, output_path):
-        if self.raw_image is None:
-            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
-            return
         try:
             self.__ensure_stop_saving()
             movie_size = MOVIE_SIZES[self.movie_size_selector.GetSelection()]
@@ -269,7 +265,7 @@ class MainFrame(ToolFrame):
                 if thumb_img is not None:
                     _x = int(thumb_img.shape[1] * x / img.shape[1] + .5)
                     thumb_buf[...] = thumb_img[...]
-                    thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + np.array((255, 255, 255), dtype=int)) // 2).astype(np.uint8)
+                    thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + THUMBNAIL_HIGHLIGHT_COLOR) // 2).astype(np.uint8)
                     writer.frame[:thumb_size[1], :, :] = thumb_buf[:, thumb_ox:thumb_ox+thumb_size[0], :]
                     if direction > 0 and _x + thumb_w > thumb_size[0]:
                         writer.frame[:thumb_size[1], :thumb_w, :] = thumb_buf[:, -thumb_w:, :]
@@ -325,4 +321,8 @@ class MainFrame(ToolFrame):
             event.Skip()
             return
         wx.LaunchDefaultApplication(str(path.parent))
+        event.Skip()
+
+    def __on_close(self, event):
+        self.__ensure_stop_saving()
         event.Skip()

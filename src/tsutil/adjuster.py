@@ -9,21 +9,19 @@ from .tool_frame import ToolFrame
 from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE, EVT_MOUSE_OVER_IMAGE, EVT_MOUSE_CLICK_IMAGE
 from .functions import unsharp_mask
 
-Image.MAX_IMAGE_PIXELS = 400000 * 3840
-
 # MARK: constants
 
-MARGIN = 16
+MARGIN = 12
 THUMBNAIL_HEIGHT = 100
 THUMBNAIL_SIZE = (1000, THUMBNAIL_HEIGHT + SCROLL_BAR_SIZE)
 PREVIEW_SIZE = (500, 300)
-POSITION_LIST_SIZE = (300, 300)
+POSITION_LIST_SIZE = (300, 250)
 ADJUST_SUFFIX = '_adjust'
 TOOL_NAME = 'ステッチング画像の縦横比の調整'
 ID_Y_TOP = 30001
 ID_Y_BOTTOM = 30002
 ID_POSITION_LIST = 30003
-DEFAULT_PREVIEW_MESSAGE = '屋根Y・足元Y・列車の調整位置をクリックして、画像の該当場所をクリックしてください。'
+DEFAULT_PREVIEW_MESSAGE = '屋根Y・足元Y・列車の調整位置を選択して画像の該当場所をクリックすると座標が入力されます。'
 
 class Position(BaseModel):
     length: int = 0
@@ -41,7 +39,7 @@ def M(height: int, factor: float, positions: list[tuple[int, str]]):
     )
 
 MEASUREMENT_DATASET = {
-    '700系': M(
+    '700系E編成': M(
         height=3650, 
         factor=0.95, 
         positions=[
@@ -83,6 +81,7 @@ class MainFrame(ToolFrame):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.file_menu_save.Enable(False)
         self.raw_image = None
+        self.thumb_image = None
         self.raw_image_x = None
         self.thumb_ratio = None
         self.last_focus = None
@@ -112,14 +111,21 @@ class MainFrame(ToolFrame):
         row += 1
 
         # input image thumbnail
+        sizer.Add(wx.StaticText(panel, label='ステッチング画像の任意の場所をクリックすると、拡大画像が下に表示されます。'), flag=wx.ALIGN_CENTER)
         self.input_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
         sizer.Add(self.input_image_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
-        row += 1
+        row += 2
 
         # setting panel
         setting_panel = self.__make_setting_panel(panel)
         sizer.Add(setting_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         sizer.AddGrowableRow(row)
+        row += 1
+
+        # save button
+        save_button = wx.Button(panel, label='調整したステッチング画像を保存する...')
+        save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
+        sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # output image thumbnail
@@ -152,7 +158,66 @@ class MainFrame(ToolFrame):
         panel = wx.Panel(parent)
         sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         sizer.AddGrowableRow(0)
-        sizer.AddGrowableCol(0)
+        sizer.AddGrowableCol(1)
+
+        setting_panel = wx.Panel(panel)
+        setting_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 8))
+        row = 0
+
+        selector_panel = wx.Panel(setting_panel)
+        selector_sizer = wx.GridSizer(rows=2, cols=1, gap=wx.Size(0, 2))
+        selector_sizer.Add(wx.StaticText(selector_panel, label='列車の種類を選択してください:', style=wx.ALIGN_LEFT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        self.selector = wx.Choice(selector_panel)
+        self.selector.Append(list(MEASUREMENT_DATASET.keys()))
+        self.selector.SetSelection(wx.NOT_FOUND)
+        self.selector.Bind(wx.EVT_CHOICE, self.__on_selector_choice)
+        selector_sizer.Add(self.selector, flag=wx.EXPAND)
+        selector_panel.SetSizerAndFit(selector_sizer)
+        setting_sizer.Add(selector_panel, flag=wx.EXPAND)
+        row += 1
+
+        height_panel = wx.Panel(setting_panel)
+        height_sizer = wx.GridSizer(rows=2, cols=4, gap=wx.Size(0, 4))
+        height_sizer.Add(wx.StaticText(height_panel, label='屋根Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.y_top = wx.SpinCtrl(height_panel, id=ID_Y_TOP, name='y_top', value="0", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.y_top.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
+        height_sizer.Add(self.y_top, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        height_sizer.Add(wx.StaticText(height_panel, label='足元Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.y_bottom = wx.SpinCtrl(height_panel, id=ID_Y_BOTTOM, name='y_bottom', value="3840", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.y_bottom.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
+        height_sizer.Add(self.y_bottom, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        height_sizer.Add(wx.StaticText(height_panel, label='補正係数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.factor = wx.SpinCtrlDouble(height_panel, name='factor', value="1.00", min=0.1, max=2.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        height_sizer.Add(self.factor, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        height_sizer.Add(wx.StaticText(height_panel, label='左右余白:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.space = wx.SpinCtrl(height_panel, name='space', value="1000", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        height_sizer.Add(self.space, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        height_panel.SetSizerAndFit(height_sizer)
+        setting_sizer.Add(height_panel, flag=wx.EXPAND)
+        row += 1
+
+        self.position_list = wx.ListCtrl(setting_panel, id=ID_POSITION_LIST, name='position_list', size=parent.FromDIP(wx.Size(*POSITION_LIST_SIZE)), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
+        self.position_list.InsertColumn(0, '列車の調整位置', wx.LIST_FORMAT_LEFT, width=200)
+        self.position_list.InsertColumn(1, 'X座標', wx.LIST_FORMAT_RIGHT, width=100)
+        self.position_list.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
+        self.position_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__on_set_focus)
+        self.position_list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__on_set_focus)
+        setting_sizer.Add(self.position_list, flag=wx.EXPAND)
+        setting_sizer.AddGrowableRow(row)
+        row += 1
+
+        option_panel = wx.Panel(setting_panel)
+        option_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(0, 4))
+        option_sizer.AddGrowableCol(0)
+        option_sizer.Add(wx.StaticText(option_panel, label='アンシャープマスクの適用 (0.0: 適用しない):', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.5", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        option_panel.SetSizerAndFit(option_sizer)
+        setting_sizer.Add(option_panel, flag=wx.EXPAND)
+        row += 1
+
+        setting_panel.SetSizerAndFit(setting_sizer)
+        sizer.Add(setting_panel, flag=wx.EXPAND)
 
         preview_panel = wx.Panel(panel)
         preview_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
@@ -190,70 +255,6 @@ class MainFrame(ToolFrame):
 
         preview_panel.SetSizerAndFit(preview_sizer)
         sizer.Add(preview_panel, flag=wx.EXPAND)
-
-        setting_panel = wx.Panel(panel)
-        setting_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 8))
-        row = 0
-
-        selector_panel = wx.Panel(setting_panel)
-        selector_sizer = wx.GridSizer(rows=2, cols=1, gap=wx.Size(0, 2))
-        selector_sizer.Add(wx.StaticText(selector_panel, label='列車の種類を選択してください:', style=wx.ALIGN_LEFT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.selector = wx.Choice(selector_panel)
-        self.selector.Append(list(MEASUREMENT_DATASET.keys()))
-        self.selector.SetSelection(wx.NOT_FOUND)
-        self.selector.Bind(wx.EVT_CHOICE, self.__on_selector_choice)
-        selector_sizer.Add(self.selector, flag=wx.EXPAND)
-        selector_panel.SetSizerAndFit(selector_sizer)
-        setting_sizer.Add(selector_panel, flag=wx.EXPAND)
-        row += 1
-
-        height_panel = wx.Panel(setting_panel)
-        height_sizer = wx.GridSizer(rows=2, cols=4, gap=wx.Size(0, 4))
-        height_sizer.Add(wx.StaticText(height_panel, label='屋根Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.y_top = wx.SpinCtrl(height_panel, id=ID_Y_TOP, name='y_top', value="0", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        self.y_top.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
-        height_sizer.Add(self.y_top, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='足元Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.y_bottom = wx.SpinCtrl(height_panel, id=ID_Y_BOTTOM, name='y_bottom', value="3840", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        self.y_bottom.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
-        height_sizer.Add(self.y_bottom, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='補正係数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.factor = wx.SpinCtrlDouble(height_panel, name='factor', value="1.00", min=0.1, max=2.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        height_sizer.Add(self.factor, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='左右余白:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.space = wx.SpinCtrl(height_panel, name='space', value="1000", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        height_sizer.Add(self.space, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_panel.SetSizerAndFit(height_sizer)
-        setting_sizer.Add(height_panel, flag=wx.EXPAND)
-        row += 1
-
-        self.position_list = wx.ListCtrl(setting_panel, id=ID_POSITION_LIST, name='position_list', size=parent.FromDIP(wx.Size(*POSITION_LIST_SIZE)), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
-        self.position_list.InsertColumn(0, '列車の調整位置', wx.LIST_FORMAT_LEFT, width=250)
-        self.position_list.InsertColumn(1, 'X座標', wx.LIST_FORMAT_RIGHT, width=100)
-        self.position_list.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
-        self.position_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__on_set_focus)
-        self.position_list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__on_set_focus)
-        setting_sizer.Add(self.position_list, flag=wx.EXPAND)
-        setting_sizer.AddGrowableRow(row)
-        row += 1
-
-        option_panel = wx.Panel(setting_panel)
-        option_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(0, 4))
-        option_sizer.AddGrowableCol(0)
-        option_sizer.Add(wx.StaticText(option_panel, label='アンシャープマスクの適用 (0.0: 適用しない):', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.5", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        option_panel.SetSizerAndFit(option_sizer)
-        setting_sizer.Add(option_panel, flag=wx.EXPAND)
-        row += 1
-
-        save_button = wx.Button(setting_panel, label='調整したステッチング画像を保存する...')
-        save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        setting_sizer.Add(save_button, flag=wx.EXPAND)
-        row += 1
-
-        setting_panel.SetSizerAndFit(setting_sizer)
-        sizer.Add(setting_panel, flag=wx.EXPAND)
 
         panel.SetSizerAndFit(sizer)
         return panel
@@ -372,7 +373,8 @@ class MainFrame(ToolFrame):
         self.__clear()
         self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         self.thumb_ratio = THUMBNAIL_HEIGHT / self.raw_image.shape[0]
-        self.input_image_thumbnail.set_image(cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA))
+        self.thumb_image = cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA)
+        self.input_image_thumbnail.set_image(self.thumb_image)
         self.input_image_thumbnail.set_image_zoom_position(0, THUMBNAIL_HEIGHT//2, 1.0)
         self.y_top.SetValue(0)
         self.y_bottom.SetValue(self.raw_image.shape[0])

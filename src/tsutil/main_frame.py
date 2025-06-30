@@ -2,14 +2,14 @@ import wx
 import wx.adv
 import sys
 from .common import *
-from . import trimmer, extractor, corrector, adjuster, converter
+from . import trimmer, extractor, corrector, adjuster, converter, converter2
 from typing import Callable
 from importlib.metadata import version, metadata
 
 # MARK: constants
 
 PACKAGE_NAME = metadata(__package__).get('Name')
-WINDOW_SIZE = (600, 400)
+WINDOW_SIZE = (600, 600)
 MARGIN = 16
 
 # MARK: main window
@@ -35,6 +35,7 @@ class MainFrame(wx.Frame):
             ('【 画像のブレ・傾き・歪みの補正 】', '手持ち撮影した動画から展開した画像ファイルの\nブレ、水平出し、台形補正を行います。', self.__launch_corrector),
             ('【 ステッチング画像の縦横比の調整 】', 'ステッチング後の画像ファイルに対して一両ずつ長さと高さを調整します。', self.__launch_adjuster),
             ('【 ステッチング画像から動画に変換 】', 'ステッチング後の画像ファイルからSNSに投稿できる動画に変換します。', self.__launch_converter),
+            ('【 ステッチング画像から動画に変換2 】', '拡大・縮小しながら表示位置が変わっていく複雑な動画を作成します。', self.__launch_converter2),
         ]
         for i, (mainLabel, note, callback) in enumerate(buttons):
             btn = self.__make_button(panel, mainLabel, note, callback)
@@ -74,6 +75,10 @@ class MainFrame(wx.Frame):
 
     def __launch_converter(self, event):
         frame = converter.MainFrame(self)
+        frame.Show()
+
+    def __launch_converter2(self, event):
+        frame = converter2.MainFrame(self)
         frame.Show()
 
     def __on_close(self, event):

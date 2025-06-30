@@ -134,8 +134,8 @@ def _make_sharp_kernel(k):
         [-k / 9, -k / 9, -k / 9]
     ], np.float32)
 
-def sigmoid_space(start, stop, n, c=10):
-    sigmoid = 1 / (1 + np.exp(-np.linspace(-c, c, n)))
+def sigmoid_space(start, stop, n, c1=-10, c2=10):
+    sigmoid = 1 / (1 + np.exp(-np.linspace(c1, c2, n)))
     sigmoid = (sigmoid - sigmoid.min()) / (sigmoid.max() - sigmoid.min())
     return start + (stop - start) * sigmoid
 
