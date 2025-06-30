@@ -54,8 +54,8 @@ class DeshakingCorrection:
                 hann
             )
             print(f'{frame_info}A{i + 1}: {delta=} {response=}', file=fd)
-            Image.fromarray(self.base_image[f.top:f.bottom, f.left:f.right, :]).save('base.png')
-            Image.fromarray(self.sample_image[f.top:f.bottom, f.left:f.right, :]).save('sample.png')
+            #Image.fromarray(self.base_image[f.top:f.bottom, f.left:f.right, :]).save('base.png')
+            #Image.fromarray(self.sample_image[f.top:f.bottom, f.left:f.right, :]).save('sample.png')
             cx, cy = f.get_center()
             base_points.append([cx, cy])
             sample_points.append([cx + delta[0], cy + delta[1]])
