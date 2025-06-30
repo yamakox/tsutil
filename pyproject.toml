@@ -26,15 +26,15 @@ dependencies = [
     "pydantic (>=2.11.0,<3.0.0)",
 ]
 
+[project.urls]
+"Homepage" = "https://github.com/yamakox/tsutil"
+
 [project.scripts]
 tsutil = "tsutil:main"
 
-[project.gui-scripts]
-tsutil = "tsutil:main"
-
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=2.0.0,<3.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry]
 packages = [{include = "tsutil", from = "src"}]
