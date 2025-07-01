@@ -4,6 +4,7 @@ import cv2
 from pathlib import Path
 from ffio import FrameReader, Probe
 from .resource import resource
+from ..common import logger
 
 # MARK: constants
 
@@ -57,6 +58,7 @@ class ImageViewer(wx.Panel):
         self.dragging_y = 0
         self.dragging_image_ox = 0
         self.dragging_image_oy = 0
+        self.gesture_zoom = None
         self.progress_total = 0
         self.progress_current = 0
         self.buf = None
@@ -72,9 +74,17 @@ class ImageViewer(wx.Panel):
         self.Bind(wx.EVT_LEFT_UP, self.on_mouse_up)
         self.Bind(wx.EVT_MOTION, self.on_mouse_move)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.on_mouse_leave)
+        zoom_gesture_enabled = self.EnableTouchEvents(wx.TOUCH_ZOOM_GESTURE)
         if enable_zoom:
-            self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
+            if zoom_gesture_enabled:
+                self.Bind(wx.EVT_GESTURE_ZOOM, self.on_gesture_zoom)
+                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_scroll)
+            else:
+                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_zoom)
             self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
+        else:
+            if zoom_gesture_enabled:
+                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_scroll)
 
     def set_grid(self, use_grid: bool=True, center_only=False):
         self.use_grid = use_grid
@@ -92,6 +102,7 @@ class ImageViewer(wx.Panel):
         self.dragging_y = 0
         self.dragging_image_ox = 0
         self.dragging_image_oy = 0
+        self.gesture_zoom = None
         self.progress_total = 0
         self.progress_current = 0
         self.__update_preview()
@@ -114,12 +125,14 @@ class ImageViewer(wx.Panel):
 
     def get_image_position(self, mouse_pos: tuple[int, int]|None=None) -> tuple[int, int]|tuple[None, None]:
         x, y = self.get_image_precise_position(mouse_pos=mouse_pos)
+        if x is None:
+            return None, None
         if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
             return int(x), int(y)
         return None, None
     
     def get_image_precise_position(self, mouse_pos: tuple[int, int]|None=None) -> tuple[int, int]|tuple[None, None]:
-        if self.image is None:
+        if self.image is None or not self.regions['preview'].Contains(mouse_pos[0], mouse_pos[1]):
             return None, None
         x, y = self.image_ox, self.image_oy
         v_ox = (self.regions['preview'].GetLeft() + self.regions['preview'].GetRight()) * .5
@@ -413,25 +426,56 @@ class ImageViewer(wx.Panel):
             iy = (y - r.GetTop()) / r.GetHeight() * self.image.shape[0]
             self.image_oy = iy - self.dragging_y
             self.__update_preview()
-        if self.regions['preview'].Contains(x, y):
-            self.fire_mouse_over_image(x, y)
+        self.fire_mouse_over_image(x, y)
 
     def on_mouse_leave(self, event):
         if self.image is None:
             return
         self.fire_mouse_over_image()
 
-    def on_mouse_wheel(self, event):
+    def on_mouse_wheel_zoom(self, event):
         if self.image is None:
+            return
+        if event.GetWheelAxis() != 0:
             return
         x = event.GetX()
         y = event.GetY()
         zoom = self.zoom_ratio
         zoom *= 1.0 + event.GetWheelRotation() * .001
-        #logger.debug(f'{event.GetWheelRotation()=} {self.zoom_ratio=} {self.min_zoom_ratio=}')
         self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
         self.__zoom_and_update_preview()
         self.fire_mouse_over_image(x, y)
+
+    def on_mouse_wheel_scroll(self, event: wx.MouseEvent):
+        logger.debug(f'on_mouse_wheel: {event.GetWheelAxis()=} {event.GetWheelRotation()=}')
+        if self.image is None:
+            return
+        axis = event.GetWheelAxis()
+        x = event.GetX()
+        y = event.GetY()
+        rot = event.GetWheelRotation()
+        buf_h, buf_w = self.buf.shape[:2]
+        if axis == 1:
+            self.image_ox += buf_w * .005 * rot / self.zoom_ratio
+        else:
+            self.image_oy -= buf_h * .005 * rot / self.zoom_ratio
+        self.__zoom_and_update_preview()
+        self.fire_mouse_over_image(x, y)
+
+    def on_gesture_zoom(self, event: wx.ZoomGestureEvent):
+        if self.image is None:
+            return
+        pos = event.GetPosition()
+        if event.IsGestureStart():
+            self.gesture_zoom = self.zoom_ratio
+        if self.gesture_zoom is not None:
+            zoom = self.gesture_zoom
+            zoom *= event.GetZoomFactor()
+            self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
+            self.__zoom_and_update_preview()
+            self.fire_mouse_over_image(pos.x, pos.y)
+        if event.IsGestureEnd():
+            self.gesture_zoom = None
 
     def on_mouse_double_click(self, event):
         if self.image is None:

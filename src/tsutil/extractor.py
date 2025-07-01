@@ -487,6 +487,7 @@ class MainFrame(ToolFrame):
         self.__set_previewer(position, self.__make_filter_complex())
         self.input_video_histogram_view.update_view()
         self.info_frame.SetLabel(f'{position}/{frame_count}')
+        self.Refresh()
         event.Skip()
 
     def __on_video_position_changed(self, event):

@@ -27,11 +27,11 @@ class FieldDeletedEvent(wx.ThreadEvent):
 # MARK: main class
 
 class BaseImageViewer(ImageViewer):
-    def __init__(self, parent, fields: list[Rect], field_visible: bool=True, *args, **kwargs):
+    def __init__(self, parent, fields: list[Rect], field_visible: bool=True, field_add_mode: bool=False, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.fields = fields
         self.field_visible = field_visible
-        self.field_add_mode = False
+        self.field_add_mode = field_add_mode
         self.dragging_rect = None
 
     def set_field_add_mode(self, mode):

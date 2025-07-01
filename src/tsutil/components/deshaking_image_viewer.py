@@ -25,8 +25,8 @@ class PerspectivePointsChangedEvent(wx.ThreadEvent):
 # MARK: main class
 
 class DeshakingImageViewer(BaseImageViewer):
-    def __init__(self, parent, perspective_points: PerspectivePoints, fields: list[Rect]=[], field_visible: bool=False, *args, **kwargs):
-        super().__init__(parent, fields, field_visible, *args, **kwargs)
+    def __init__(self, parent, perspective_points: PerspectivePoints, fields: list[Rect]=[], field_visible: bool=False, field_add_mode: bool=False, *args, **kwargs):
+        super().__init__(parent, fields, field_visible, field_add_mode, *args, **kwargs)
         self.perspective_points = perspective_points
 
     def on_paint(self, event):

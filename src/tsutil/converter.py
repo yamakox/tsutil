@@ -1,8 +1,6 @@
 import wx
 import wx.adv
-from pathlib import Path
 from pydantic import BaseModel
-from PIL import Image
 import cv2
 import threading
 from ffio import FrameWriter

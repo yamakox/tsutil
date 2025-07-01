@@ -81,8 +81,13 @@ class MainFrame(ToolFrame):
 
         # viewer panel
         viewer_panel = self.__make_viewer_panel(panel)
-        sizer.Add(viewer_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(viewer_panel, flag=wx.EXPAND)
         sizer.AddGrowableRow(row)
+        row += 1
+
+        # console panel
+        console_panel = self.__make_console_panel(panel)
+        sizer.Add(console_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # use correction panel
@@ -92,10 +97,14 @@ class MainFrame(ToolFrame):
         self.use_deshake_correction_button.SetValue(self.model.use_deshake_correction)
         self.use_deshake_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_deshake_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
-        self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='基準画像の回転補正を行う')
+        self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='基準画像の傾き補正(角度):')
         self.use_rotation_correction_button.SetValue(self.model.use_rotation_correction)
         self.use_rotation_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_rotation_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(self.use_rotation_correction_button, flag=wx.ALIGN_CENTER_VERTICAL)
+        self.rotation = wx.SpinCtrlDouble(use_correction_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.rotation.Bind(wx.EVT_TEXT, self.__on_input_value_changed)
+        self.rotation.Bind(wx.EVT_SPINCTRLDOUBLE, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.rotation, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
         self.use_perspective_correction_button = wx.CheckBox(use_correction_panel, label='歪み補正(射影変換)を行う')
         self.use_perspective_correction_button.SetValue(self.model.use_perspective_correction)
         self.use_perspective_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
@@ -113,13 +122,13 @@ class MainFrame(ToolFrame):
         self.use_grid_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_grid_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
         use_correction_panel.SetSizerAndFit(user_correction_sizer)
-        sizer.Add(use_correction_panel, flag=wx.EXPAND|wx.BOTTOM, border=8)
+        sizer.Add(use_correction_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
         row += 1
 
-        # console panel
-        console_panel = self.__make_console_panel(panel)
-        sizer.Add(console_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
-        row += 1
+        # save button
+        save_button = wx.Button(panel, label='補正後の連続画像とカタログファイルを作成する...')
+        save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
+        sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
 
         # output video thumbnail 
         output_video_panel = wx.Panel(panel)
@@ -179,7 +188,7 @@ class MainFrame(ToolFrame):
         # image viewers
         image_panel = wx.Panel(panel)
         image_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
-        self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields)
+        self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields, field_add_mode=True)
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         self.base_image_viewer.Bind(EVT_FIELD_DELETED, self.__on_field_deleted)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
@@ -205,11 +214,6 @@ class MainFrame(ToolFrame):
         shaking_panel = wx.Panel(panel)
         shaking_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         shaking_sizer.AddGrowableCol(0)
-        self.shaking_detection_area_add_button = wx.ToggleButton(shaking_panel, label='ブレ測定枠を追加・削除する')
-        self.shaking_detection_area_add_button.SetValue(False)
-        self.shaking_detection_area_add_button.Disable()
-        self.shaking_detection_area_add_button.Bind(wx.EVT_TOGGLEBUTTON, self.__on_shaking_detection_area_add_button_clicked)
-        shaking_sizer.Add(self.shaking_detection_area_add_button, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=6)
         shaking_sizer.Add(wx.StaticText(shaking_panel, label='左の画像をドラッグしてブレ測定枠を追加します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         shaking_sizer.Add(wx.StaticText(shaking_panel, label='また、ブレ測定枠をクリックすると削除します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         shaking_panel.SetSizerAndFit(shaking_sizer)
@@ -219,15 +223,6 @@ class MainFrame(ToolFrame):
         correction_panel = wx.Panel(panel)
         correction_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         correction_sizer.AddGrowableCol(0)
-        rotation_panel = wx.Panel(correction_panel)
-        rotation_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(4, 0))
-        rotation_sizer.Add(wx.StaticText(rotation_panel, label='基準画像の傾きを補正する回転角度:', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_RIGHT|wx.ALIGN_CENTER_VERTICAL)
-        self.rotation = wx.SpinCtrlDouble(rotation_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        self.rotation.Bind(wx.EVT_TEXT, self.__on_input_value_changed)
-        self.rotation.Bind(wx.EVT_SPINCTRLDOUBLE, self.__on_input_value_changed)
-        rotation_sizer.Add(self.rotation, flag=wx.EXPAND)
-        rotation_panel.SetSizerAndFit(rotation_sizer)
-        correction_sizer.Add(rotation_panel, flag=wx.ALIGN_CENTER_HORIZONTAL|wx.TOP|wx.BOTTOM, border=6)
         correction_sizer.Add(wx.StaticText(correction_panel, label='歪み補正(射影変換)は中央の画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         correction_sizer.Add(wx.StaticText(correction_panel, label='水平・垂直にする四角形を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         correction_panel.SetSizerAndFit(correction_sizer)
@@ -239,11 +234,6 @@ class MainFrame(ToolFrame):
         clip_sizer.AddGrowableCol(0)
         clip_sizer.Add(wx.StaticText(clip_panel, label='右の補正後画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
         clip_sizer.Add(wx.StaticText(clip_panel, label='画像ファイルに出力する範囲を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
-        clip_sizer.AddStretchSpacer()
-        clip_sizer.AddGrowableRow(2)
-        save_button = wx.Button(clip_panel, label='補正後の連続画像とカタログファイルを作成する...')
-        save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        clip_sizer.Add(save_button, flag=wx.ALIGN_CENTER)
         clip_panel.SetSizerAndFit(clip_sizer)
         sizer.Add(clip_panel, flag=wx.EXPAND)
 
@@ -383,7 +373,7 @@ class MainFrame(ToolFrame):
             self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
         self.__set_base_image_viewer()
         self.__set_sample_image_viewer()
-        self.shaking_detection_area_add_button.Enable()
+        self.Refresh()
         event.Skip()
 
     def __on_video_position_changed(self, event):
@@ -424,10 +414,6 @@ class MainFrame(ToolFrame):
 
     def __on_clip_rect_changed(self, event):
         self.__set_sample_image_viewer()
-
-    def __on_shaking_detection_area_add_button_clicked(self, event):
-        value = self.shaking_detection_area_add_button.GetValue()
-        self.base_image_viewer.set_field_add_mode(value)
 
     def __on_input_value_changed(self, event):
         self.setting_changed_time = time.time()

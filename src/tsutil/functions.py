@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 from .common import *
-from PIL import Image
+#from PIL import Image
 from typing import TextIO
 import sys
 
