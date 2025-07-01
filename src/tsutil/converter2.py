@@ -348,6 +348,9 @@ class MainFrame(ToolFrame):
         self.previewer.clear()
         self.info_x.SetLabel('')
         self.info_y.SetLabel('')
+        self.add_button.Enable(False)
+        self.change_button.Enable(False)
+        self.delete_button.Enable(False)
 
     def __set_form(self, seq_item: SequenceItem):
         self.seq_x.SetValue(seq_item.x)
@@ -481,6 +484,7 @@ class MainFrame(ToolFrame):
     def __on_seq_list_item_selected(self, event):
         selected_index = self.sequence_list.GetFirstSelected()
         selected = selected_index > -1
+        self.add_button.Enable(selected)
         self.change_button.Enable(selected)
         self.delete_button.Enable(selected)
         self.up_button.Enable(selected)

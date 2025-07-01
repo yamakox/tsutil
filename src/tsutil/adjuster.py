@@ -27,7 +27,7 @@ class Position(BaseModel):
 
 class MeasurementData(BaseModel):
     height: int = 0
-    factor: float = 0.95
+    factor: float = 1.00
     positions: list[Position] = []
 
 def M(height: int, factor: float, positions: list[tuple[int, str]]):
@@ -39,7 +39,7 @@ def M(height: int, factor: float, positions: list[tuple[int, str]]):
 MEASUREMENT_DATASET = {
     '700系E編成': M(
         height=3650, 
-        factor=0.95, 
+        factor=1.00, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (9200, '1両目のノーズ終端'), 
@@ -188,7 +188,7 @@ class MainFrame(ToolFrame):
         self.factor = wx.SpinCtrlDouble(height_panel, name='factor', value="1.00", min=0.1, max=2.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
         height_sizer.Add(self.factor, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
         height_sizer.Add(wx.StaticText(height_panel, label='左右余白:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.space = wx.SpinCtrl(height_panel, name='space', value="1000", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.space = wx.SpinCtrl(height_panel, name='space', value="100", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
         height_sizer.Add(self.space, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
         height_panel.SetSizerAndFit(height_sizer)
         setting_sizer.Add(height_panel, flag=wx.EXPAND)
@@ -273,7 +273,7 @@ class MainFrame(ToolFrame):
         self.y_top.SetValue(0)
         self.y_bottom.SetValue(3840)
         self.factor.SetValue('1.00')
-        self.space.SetValue(1000)
+        self.space.SetValue(100)
         self.position_list.DeleteAllItems()
         self.preview_message.SetLabel(DEFAULT_PREVIEW_MESSAGE)
 

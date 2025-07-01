@@ -447,7 +447,6 @@ class ImageViewer(wx.Panel):
         self.fire_mouse_over_image(x, y)
 
     def on_mouse_wheel_scroll(self, event: wx.MouseEvent):
-        logger.debug(f'on_mouse_wheel: {event.GetWheelAxis()=} {event.GetWheelRotation()=}')
         if self.image is None:
             return
         axis = event.GetWheelAxis()
@@ -456,9 +455,9 @@ class ImageViewer(wx.Panel):
         rot = event.GetWheelRotation()
         buf_h, buf_w = self.buf.shape[:2]
         if axis == 1:
-            self.image_ox += buf_w * .005 * rot / self.zoom_ratio
+            self.image_ox += buf_w * .002 * rot / self.zoom_ratio
         else:
-            self.image_oy -= buf_h * .005 * rot / self.zoom_ratio
+            self.image_oy -= buf_h * .002 * rot / self.zoom_ratio
         self.__zoom_and_update_preview()
         self.fire_mouse_over_image(x, y)
 

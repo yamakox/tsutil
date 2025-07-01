@@ -18,7 +18,7 @@ from .functions import DeshakingCorrection
 # MARK: constants
 
 MARGIN = 12
-TOOL_NAME = '画像のブレ・傾き・歪みの補正'
+TOOL_NAME = '連続画像のブレ・傾き・歪みの補正'
 SETTING_EXTENSION = '.correct.json'
 CORR_SUFFIX = '_CORR'
 PNG_SUFFIX = '_PNG'
@@ -97,7 +97,15 @@ class MainFrame(ToolFrame):
         self.use_deshake_correction_button.SetValue(self.model.use_deshake_correction)
         self.use_deshake_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_deshake_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
-        self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='基準画像の傾き補正(角度):')
+        self.use_overlay_button = wx.CheckBox(use_correction_panel, label='基準画像を重ねて表示する')
+        self.use_overlay_button.SetValue(self.model.use_overlay)
+        self.use_overlay_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_overlay_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_nega_button = wx.CheckBox(use_correction_panel, label='ネガで重ねる')
+        self.use_nega_button.SetValue(self.model.use_nega)
+        self.use_nega_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
+        user_correction_sizer.Add(self.use_nega_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='画像の傾き補正(角度):')
         self.use_rotation_correction_button.SetValue(self.model.use_rotation_correction)
         self.use_rotation_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_rotation_correction_button, flag=wx.ALIGN_CENTER_VERTICAL)
@@ -109,14 +117,6 @@ class MainFrame(ToolFrame):
         self.use_perspective_correction_button.SetValue(self.model.use_perspective_correction)
         self.use_perspective_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_perspective_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
-        self.use_overlay_button = wx.CheckBox(use_correction_panel, label='基準画像を重ねて表示する')
-        self.use_overlay_button.SetValue(self.model.use_overlay)
-        self.use_overlay_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_overlay_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
-        self.use_nega_button = wx.CheckBox(use_correction_panel, label='ネガで重ねる')
-        self.use_nega_button.SetValue(self.model.use_nega)
-        self.use_nega_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_nega_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
         self.use_grid_button = wx.CheckBox(use_correction_panel, label='グリッドを表示する')
         self.use_grid_button.SetValue(self.model.use_grid)
         self.use_grid_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
