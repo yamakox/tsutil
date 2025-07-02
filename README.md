@@ -2,6 +2,18 @@
 
 [TrainScanner](https://github.com/vitroid/TrainScanner)用の動画データを事前処理するためのツールです。また、TrainScannerで生成したステッチング画像をSNSなどで共有できるように動画変換するツールもあります。
 
+<div style="white-space: nowrap; overflow-x: auto">
+<a href="./docs/trimmer.md"><img src="./docs/i/trimmer.png" width="30%" alt="動画ファイルのトリミング"><a href="./docs/trimmer.md"></a>
+<a href="./docs/extractor.md"><img src="./docs/i/extractor.png" width="30%" alt="動画ファイルから連続画像の展開"></a>
+<a href="./docs/corrector.md"><img src="./docs/i/corrector.png" width="30%" alt="連続画像のブレ・傾き・歪みの補正"></a>
+<a href="./docs/adjuster.md"><img src="./docs/i/adjuster.png" width="30%" alt="ステッチング画像の縦横比の調整"></a>
+<a href="./docs/converter.md"><img src="./docs/i/converter.png" width="30%" alt="ステッチング画像から動画に変換"></a>
+</div>
+
+<div style="margin: 1em; text-align: center">
+<img src="./docs/i/animation.gif" alt="ステッチング画像の動画化">
+</div>
+
 - [tsutil](#tsutil)
   - [特徴](#特徴)
   - [インストール](#インストール)
@@ -71,5 +83,3 @@ pip3 install git+https://github.com/yamakox/tsutil.git
 ```bash
 tsutil
 ```
-
-![メイン画面](./docs/i/main_frame.png)
