@@ -5,7 +5,6 @@ from .common import *
 from . import trimmer, extractor, corrector, adjuster, converter, converter2
 from typing import Callable
 from importlib.metadata import version, metadata
-import tkinter
 
 # MARK: constants
 
@@ -18,9 +17,6 @@ MARGIN = 16
 class MainFrame(wx.Frame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=f'{APP_NAME} v{version(PACKAGE_NAME)}', *args, **kw)
-
-        root = tkinter.Tk()
-        dpi = root.winfo_fpixels('1i')
 
         self.SetSize(dpi_aware_size(self, wx.Size(*WINDOW_SIZE)))
         if sys.platform == 'darwin':
