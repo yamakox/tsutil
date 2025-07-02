@@ -4,6 +4,10 @@ import numpy as np
 import cv2
 import logging
 import os
+import wx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # MARK: logger "tsutil"
 
@@ -13,6 +17,23 @@ logger.setLevel(logging.DEBUG if debug else logging.INFO)
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s", 
 )
+
+# MARK: dpi_aware
+dpi_aware_value = os.environ.get('DPI_AWARE')
+base_dpi = 96
+
+def dpi_aware(w: wx.Window, value: int) -> int:
+    if dpi_aware_value:
+        return int(value * int(dpi_aware_value) / base_dpi + .5)
+    return w.FromDIP(value)
+
+def dpi_aware_size(w: wx.Window, sz: wx.Size) -> wx.Size:
+    if dpi_aware_value:
+        return wx.Size(
+            int(sz.GetWidth() * int(dpi_aware_value) / base_dpi + .5), 
+            int(sz.GetHeight() * int(dpi_aware_value) / base_dpi + .5)
+        )
+    return w.FromDIP(sz)
 
 # MARK: constants
 

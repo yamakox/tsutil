@@ -28,6 +28,8 @@ class DeshakingImageViewer(BaseImageViewer):
     def __init__(self, parent, perspective_points: PerspectivePoints, fields: list[Rect]=[], field_visible: bool=False, field_add_mode: bool=False, *args, **kwargs):
         super().__init__(parent, fields, field_visible, field_add_mode, *args, **kwargs)
         self.perspective_points = perspective_points
+        self.CORNER_SIZE = dpi_aware(parent, CORNER_SIZE)
+        self.PEN_WIDTH = dpi_aware(parent, PEN_WIDTH)
 
     def on_paint(self, event):
         super().on_paint(event)
@@ -44,22 +46,22 @@ class DeshakingImageViewer(BaseImageViewer):
                 rb = self.get_view_position(*p.right_bottom.to_tuple())
                 lb = self.get_view_position(*p.left_bottom.to_tuple())
 
-                gc.SetPen(wx.Pen(wx.Colour(255, 128, 0, 192), width=PEN_WIDTH, style=wx.PENSTYLE_SOLID))
+                gc.SetPen(wx.Pen(wx.Colour(255, 128, 0, 192), width=self.PEN_WIDTH, style=wx.PENSTYLE_SOLID))
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
                 path = gc.CreatePath()
                 path.MoveToPoint(lt[0], lt[1])
-                path.AddLineToPoint(rt[0] - PEN_WIDTH, rt[1])
-                path.AddLineToPoint(rb[0] - PEN_WIDTH, rb[1] - PEN_WIDTH)
-                path.AddLineToPoint(lb[0], lb[1] - PEN_WIDTH)
+                path.AddLineToPoint(rt[0] - self.PEN_WIDTH, rt[1])
+                path.AddLineToPoint(rb[0] - self.PEN_WIDTH, rb[1] - self.PEN_WIDTH)
+                path.AddLineToPoint(lb[0], lb[1] - self.PEN_WIDTH)
                 path.CloseSubpath()
                 gc.DrawPath(path)
 
                 gc.SetPen(wx.NullPen)
                 gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
-                gc.DrawRectangle(lt[0], lt[1], CORNER_SIZE, CORNER_SIZE)
-                gc.DrawRectangle(rt[0] - CORNER_SIZE, rt[1], CORNER_SIZE, CORNER_SIZE)
-                gc.DrawRectangle(rb[0] - CORNER_SIZE, rb[1] - CORNER_SIZE, CORNER_SIZE, CORNER_SIZE)
-                gc.DrawRectangle(lb[0], lb[1] - CORNER_SIZE, CORNER_SIZE, CORNER_SIZE)
+                gc.DrawRectangle(lt[0], lt[1], self.CORNER_SIZE, self.CORNER_SIZE)
+                gc.DrawRectangle(rt[0] - self.CORNER_SIZE, rt[1], self.CORNER_SIZE, self.CORNER_SIZE)
+                gc.DrawRectangle(rb[0] - self.CORNER_SIZE, rb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
+                gc.DrawRectangle(lb[0], lb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
             gc.ResetClip()
 
     def on_mouse_down(self, event):
@@ -69,22 +71,22 @@ class DeshakingImageViewer(BaseImageViewer):
         y = event.GetY()
         p = self.perspective_points
         cx, cy = self.get_view_position(*p.left_top.to_tuple())
-        if cx <= x < cx + CORNER_SIZE and cy <= y < cy  + CORNER_SIZE:
+        if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy  + self.CORNER_SIZE:
             self.dragging = DRAGGING_CORNER_LT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.right_top.to_tuple())
-        if cx - CORNER_SIZE <= x < cx and cy <= y < cy  + CORNER_SIZE:
+        if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy  + self.CORNER_SIZE:
             self.dragging = DRAGGING_CORNER_RT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.right_bottom.to_tuple())
-        if cx - CORNER_SIZE <= x < cx and cy - CORNER_SIZE <= y < cy:
+        if cx - self.CORNER_SIZE <= x < cx and cy - self.CORNER_SIZE <= y < cy:
             self.dragging = DRAGGING_CORNER_RB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.left_bottom.to_tuple())
-        if cx <= x < cx + CORNER_SIZE and cy - CORNER_SIZE <= y < cy:
+        if cx <= x < cx + self.CORNER_SIZE and cy - self.CORNER_SIZE <= y < cy:
             self.dragging = DRAGGING_CORNER_LB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return

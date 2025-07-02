@@ -82,10 +82,8 @@ class RangeImageViewer(ImageViewer):
             return
         x = event.GetX()
         y = event.GetY()
-        x = min(max(0, x), self.image.shape[1] - 1)
-        y = min(max(0, y), self.image.shape[0] - 1)
         if self.dragging == DRAGGING_RECT:
-            ix, iy = self.get_image_position(mouse_pos=(x, y))
+            ix, iy = self.get_image_position(mouse_pos=(x, y), range_limit=True)
             if ix is not None:
                 if event.ShiftDown():
                     dx, dy = ix - self.dragging_x, iy - self.dragging_y

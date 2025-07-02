@@ -65,7 +65,7 @@ class MovieSavingEvent(wx.ThreadEvent):
 class MainFrame(ToolFrame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
-        self.file_menu_save.Enable(False)
+        self.enable_save_menu(False)
         self.raw_image = None
         self.saving = None
 
@@ -143,11 +143,13 @@ class MainFrame(ToolFrame):
         left_sizer.Add(wx.StaticText(left_panel, label='動画のサイズ:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
         self.movie_size_selector = wx.Choice(left_panel)
         self.movie_size_selector.Append([i.description for i in MOVIE_SIZES])
+        self.movie_size_selector.SetSelection(0)
         left_sizer.Add(self.movie_size_selector, flag=wx.EXPAND)
 
         left_sizer.Add(wx.StaticText(left_panel, label='サムネイル:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
         self.thumb_height_selector = wx.Choice(left_panel)
         self.thumb_height_selector.Append([i.description for i in THUMB_HEIGHTS])
+        self.thumb_height_selector.SetSelection(0)
         left_sizer.Add(self.thumb_height_selector, flag=wx.EXPAND)
 
         left_sizer.Add(wx.StaticText(left_panel, label='動画の秒数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
@@ -157,6 +159,7 @@ class MainFrame(ToolFrame):
         left_sizer.Add(wx.StaticText(left_panel, label='フレームレート:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
         self.frame_rate_selector = wx.Choice(left_panel)
         self.frame_rate_selector.Append([i.description for i in FRAME_RATES])
+        self.frame_rate_selector.SetSelection(0)
         left_sizer.Add(self.frame_rate_selector, flag=wx.EXPAND)
 
         left_panel.SetSizerAndFit(left_sizer)
@@ -282,9 +285,9 @@ class MainFrame(ToolFrame):
             return
         self.__clear()
         self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
-        self.thumb_ratio = THUMBNAIL_HEIGHT / self.raw_image.shape[0]
-        self.input_image_thumbnail.set_image(cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA))
-        self.input_image_thumbnail.set_image_zoom_position(0, THUMBNAIL_HEIGHT//2, 1.0)
+        self.thumb_ratio = dpi_aware(self, THUMBNAIL_HEIGHT) / self.raw_image.shape[0]
+        self.input_image_thumbnail.set_image(cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
+        self.input_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
         event.Skip()
 
     def __on_save_button_clicked(self, event):

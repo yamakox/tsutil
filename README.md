@@ -76,6 +76,18 @@ sudo apt install ffmpeg
 pip3 install git+https://github.com/yamakox/tsutil.git
 ```
 
+補足: [Ubuntu Linuxにインストール](https://discuss.wxpython.org/t/install-wxpython-4-2-2-on-ubuntu/37162)するときは、あらかじめ`wxPython`を以下のコマンドでインストールしてください。(以下のURLはUbuntu 24.04の場合)
+
+```bash
+pip3 install -v -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython
+```
+
+さらに補足: Xubuntu Desktopの`外観`設定でカスタムDPIを設定していると正常なサイズで表示できませんでした。このため、`.env`ファイルに`DPI_AWARE`環境変数でカスタムDPIを本プログラムに渡せるようにしています。例えば`外観`のカスタムDPI設定が144の場合:
+
+```.env
+DPI_AWARE=144
+```
+
 ## 起動
 
 ターミナルで以下のコマンドを入力すると、メイン画面が開きます。

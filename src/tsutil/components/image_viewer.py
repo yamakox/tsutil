@@ -4,19 +4,19 @@ import cv2
 from pathlib import Path
 from ffio import FrameReader, Probe
 from .resource import resource
-from ..common import logger
+from ..common import *
 
 # MARK: constants
 
 MIN_SIZE = (180, 320)
 SCROLL_BAR_SIZE = 12
+GRID_SIZE = 50
+PROGRESS_BAR_HEIGHT = 10
 DRAGGING_NONE = 0
 DRAGGING_PREVIEW = 1
 DRAGGING_HSCROLL = 2
 DRAGGING_VSCROLL = 3
 DRAGGING_ZOOM = 4
-GRID_SIZE = 50
-PROGRESS_BAR_HEIGHT = 10
 
 # MARK: events
 
@@ -43,7 +43,10 @@ class MouseClickImageEvent(wx.ThreadEvent):
 class ImageViewer(wx.Panel):
     def __init__(self, parent, min_size=MIN_SIZE, enable_zoom=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.SetMinSize(parent.FromDIP(wx.Size(*min_size)))
+        self.SetMinSize(dpi_aware_size(parent, wx.Size(*min_size)))
+        self.SCROLL_BAR_SIZE = dpi_aware(parent, SCROLL_BAR_SIZE)
+        self.GRID_SIZE = dpi_aware(parent, GRID_SIZE)
+        self.PROGRESS_BAR_HEIGHT = dpi_aware(parent, PROGRESS_BAR_HEIGHT)
         self.enable_zoom = enable_zoom
         self.image = None
         self.image_ox = 0.0
@@ -74,17 +77,12 @@ class ImageViewer(wx.Panel):
         self.Bind(wx.EVT_LEFT_UP, self.on_mouse_up)
         self.Bind(wx.EVT_MOTION, self.on_mouse_move)
         self.Bind(wx.EVT_LEAVE_WINDOW, self.on_mouse_leave)
+        self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel)
         zoom_gesture_enabled = self.EnableTouchEvents(wx.TOUCH_ZOOM_GESTURE)
         if enable_zoom:
             if zoom_gesture_enabled:
                 self.Bind(wx.EVT_GESTURE_ZOOM, self.on_gesture_zoom)
-                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_scroll)
-            else:
-                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_zoom)
             self.Bind(wx.EVT_LEFT_DCLICK, self.on_mouse_double_click)
-        else:
-            if zoom_gesture_enabled:
-                self.Bind(wx.EVT_MOUSEWHEEL, self.on_mouse_wheel_scroll)
 
     def set_grid(self, use_grid: bool=True, center_only=False):
         self.use_grid = use_grid
@@ -123,11 +121,15 @@ class ImageViewer(wx.Panel):
     def get_image(self):
         return self.image
 
-    def get_image_position(self, mouse_pos: tuple[int, int]|None=None) -> tuple[int, int]|tuple[None, None]:
+    def get_image_position(self, mouse_pos: tuple[int, int]|None=None, range_limit: bool=False) -> tuple[int, int]|tuple[None, None]:
         x, y = self.get_image_precise_position(mouse_pos=mouse_pos)
         if x is None:
             return None, None
         if 0 <= x < self.image.shape[1] and 0 <= y < self.image.shape[0]:
+            return int(x), int(y)
+        if range_limit:
+            x = min(max(0, x), self.image.shape[1] - 1)
+            y = min(max(0, y), self.image.shape[0] - 1)
             return int(x), int(y)
         return None, None
     
@@ -277,12 +279,12 @@ class ImageViewer(wx.Panel):
     def on_size(self, event):
         size = event.GetSize()
         w, h = size.GetWidth(), size.GetHeight()
-        self.buf = np.zeros((h - SCROLL_BAR_SIZE, w - SCROLL_BAR_SIZE, 3), dtype=np.uint8)
-        self.bitmap = wx.Bitmap.FromBuffer(w - SCROLL_BAR_SIZE, h - SCROLL_BAR_SIZE, self.buf.tobytes())
+        self.buf = np.zeros((h - self.SCROLL_BAR_SIZE, w - self.SCROLL_BAR_SIZE, 3), dtype=np.uint8)
+        self.bitmap = wx.Bitmap.FromBuffer(w - self.SCROLL_BAR_SIZE, h - self.SCROLL_BAR_SIZE, self.buf.tobytes())
         self.regions = {
             'preview': wx.Rect(0, 0, self.buf.shape[1], self.buf.shape[0]), 
-            'hscroll': wx.Rect(0, self.buf.shape[0], self.buf.shape[1], SCROLL_BAR_SIZE), 
-            'vscroll': wx.Rect(self.buf.shape[1], 0, SCROLL_BAR_SIZE, self.buf.shape[0]), 
+            'hscroll': wx.Rect(0, self.buf.shape[0], self.buf.shape[1], self.SCROLL_BAR_SIZE), 
+            'vscroll': wx.Rect(self.buf.shape[1], 0, self.SCROLL_BAR_SIZE, self.buf.shape[0]), 
         }
         if self.__set_min_zoom_ratio():
             self.__update_preview()
@@ -301,8 +303,8 @@ class ImageViewer(wx.Panel):
             gc.DrawBitmap(self.bitmap, 0, 0, bmp_size.GetWidth(), bmp_size.GetHeight())
             gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
             h, w = self.buf.shape[:2]
-            gc.DrawRectangle(0, h, w, SCROLL_BAR_SIZE)
-            gc.DrawRectangle(w, 0, SCROLL_BAR_SIZE, h)
+            gc.DrawRectangle(0, h, w, self.SCROLL_BAR_SIZE)
+            gc.DrawRectangle(w, 0, self.SCROLL_BAR_SIZE, h)
             if self.image is None:
                 return
             gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
@@ -311,13 +313,13 @@ class ImageViewer(wx.Panel):
                 ox = self.image_ox / self.image.shape[1] * w
                 hsl_min = max(0, int(ox - hsl * .5 + .5))
                 hsl_max = min(w, int(ox + hsl * .5 + .5))
-                gc.DrawRectangle(hsl_min, h, hsl_max - hsl_min, SCROLL_BAR_SIZE)
+                gc.DrawRectangle(hsl_min, h, hsl_max - hsl_min, self.SCROLL_BAR_SIZE)
             vsl = h / self.zoomed_image.shape[0] * h
             if vsl < h:
                 oy = self.image_oy / self.image.shape[0] * h
                 vsl_min = max(0, int(oy - vsl * .5 + .5))
                 vsl_max = min(h, int(oy + vsl * .5 + .5))
-                gc.DrawRectangle(w, vsl_min, SCROLL_BAR_SIZE, vsl_max - vsl_min)
+                gc.DrawRectangle(w, vsl_min, self.SCROLL_BAR_SIZE, vsl_max - vsl_min)
             if self.use_grid:
                 rgn = self.regions['preview']
                 rgn_ox = (rgn.left + rgn.right) // 2
@@ -329,11 +331,11 @@ class ImageViewer(wx.Panel):
                     gc.DrawRectangle(rgn_ox, rgn.top, .5, rgn.bottom - rgn.top)
                     gc.DrawRectangle(rgn.left, rgn_oy, rgn.right - rgn.left, .5)
                 else:
-                    for x in range(0, (rgn.right - rgn.left) // 2, GRID_SIZE):
+                    for x in range(0, (rgn.right - rgn.left) // 2, self.GRID_SIZE):
                         gc.DrawRectangle(rgn_ox + x, rgn.top, .5, rgn.bottom - rgn.top)
                         if x:
                             gc.DrawRectangle(rgn_ox - x, rgn.top, .5, rgn.bottom - rgn.top)
-                    for y in range(0, (rgn.bottom - rgn.top) // 2, GRID_SIZE):
+                    for y in range(0, (rgn.bottom - rgn.top) // 2, self.GRID_SIZE):
                         gc.DrawRectangle(rgn.left, rgn_oy + y, rgn.right - rgn.left, .5)
                         if y:
                             gc.DrawRectangle(rgn.left, rgn_oy - y, rgn.right - rgn.left, .5)
@@ -341,11 +343,11 @@ class ImageViewer(wx.Panel):
             if self.progress_total > 0:
                 rgn = self.regions['preview']
                 gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))
-                gc.DrawRectangle(rgn.GetLeft(), rgn.GetBottom() - PROGRESS_BAR_HEIGHT, 
-                                 rgn.GetWidth(), PROGRESS_BAR_HEIGHT)
+                gc.DrawRectangle(rgn.GetLeft(), rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT, 
+                                 rgn.GetWidth(), self.PROGRESS_BAR_HEIGHT)
                 gc.SetBrush(wx.Brush(wx.Colour(0, 255, 64, 255)))
-                gc.DrawRectangle(rgn.GetLeft() + 1, rgn.GetBottom() - PROGRESS_BAR_HEIGHT + 1, 
-                                 min(self.progress_current * rgn.GetWidth() // self.progress_total, rgn.GetWidth() - 2), PROGRESS_BAR_HEIGHT - 2)
+                gc.DrawRectangle(rgn.GetLeft() + 1, rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT + 1, 
+                                 min(self.progress_current * rgn.GetWidth() // self.progress_total, rgn.GetWidth() - 2), self.PROGRESS_BAR_HEIGHT - 2)
 
     def on_mouse_down(self, event):
         if self.image is None:
@@ -433,20 +435,10 @@ class ImageViewer(wx.Panel):
             return
         self.fire_mouse_over_image()
 
-    def on_mouse_wheel_zoom(self, event):
-        if self.image is None:
+    def on_mouse_wheel(self, event: wx.MouseEvent):
+        if self.enable_zoom and event.ControlDown():
+            self.on_mouse_wheel_zoom(event)
             return
-        if event.GetWheelAxis() != 0:
-            return
-        x = event.GetX()
-        y = event.GetY()
-        zoom = self.zoom_ratio
-        zoom *= 1.0 + event.GetWheelRotation() * .001
-        self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
-        self.__zoom_and_update_preview()
-        self.fire_mouse_over_image(x, y)
-
-    def on_mouse_wheel_scroll(self, event: wx.MouseEvent):
         if self.image is None:
             return
         axis = event.GetWheelAxis()
@@ -458,6 +450,19 @@ class ImageViewer(wx.Panel):
             self.image_ox += buf_w * .002 * rot / self.zoom_ratio
         else:
             self.image_oy -= buf_h * .002 * rot / self.zoom_ratio
+        self.__zoom_and_update_preview()
+        self.fire_mouse_over_image(x, y)
+
+    def on_mouse_wheel_zoom(self, event: wx.MouseEvent):
+        if self.image is None:
+            return
+        if event.GetWheelAxis() != 0:
+            return
+        x = event.GetX()
+        y = event.GetY()
+        zoom = self.zoom_ratio
+        zoom *= 1.0 + event.GetWheelRotation() * .001
+        self.zoom_ratio = min(max(self.min_zoom_ratio, zoom), 2.0)
         self.__zoom_and_update_preview()
         self.fire_mouse_over_image(x, y)
 

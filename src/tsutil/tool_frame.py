@@ -22,3 +22,7 @@ class ToolFrame(wx.Frame):
 
     def on_save_menu(self, event):
         event.Skip()
+
+    def enable_save_menu(self, enable: bool):
+        if sys.platform == 'darwin':
+            self.file_menu_save.Enable(enable)

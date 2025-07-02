@@ -77,7 +77,7 @@ MEASUREMENT_DATASET = {
 class MainFrame(ToolFrame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
-        self.file_menu_save.Enable(False)
+        self.enable_save_menu(False)
         self.raw_image = None
         self.thumb_image = None
         self.raw_image_x = None
@@ -194,7 +194,7 @@ class MainFrame(ToolFrame):
         setting_sizer.Add(height_panel, flag=wx.EXPAND)
         row += 1
 
-        self.position_list = wx.ListCtrl(setting_panel, id=ID_POSITION_LIST, name='position_list', size=parent.FromDIP(wx.Size(*POSITION_LIST_SIZE)), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
+        self.position_list = wx.ListCtrl(setting_panel, id=ID_POSITION_LIST, name='position_list', size=dpi_aware_size(parent, wx.Size(*POSITION_LIST_SIZE)), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
         self.position_list.InsertColumn(0, '列車の調整位置', wx.LIST_FORMAT_LEFT, width=200)
         self.position_list.InsertColumn(1, 'X座標', wx.LIST_FORMAT_RIGHT, width=100)
         self.position_list.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
@@ -370,10 +370,10 @@ class MainFrame(ToolFrame):
             return
         self.__clear()
         self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
-        self.thumb_ratio = THUMBNAIL_HEIGHT / self.raw_image.shape[0]
-        self.thumb_image = cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA)
+        self.thumb_ratio = dpi_aware(self, THUMBNAIL_HEIGHT) / self.raw_image.shape[0]
+        self.thumb_image = cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA)
         self.input_image_thumbnail.set_image(self.thumb_image)
-        self.input_image_thumbnail.set_image_zoom_position(0, THUMBNAIL_HEIGHT//2, 1.0)
+        self.input_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
         self.y_top.SetValue(0)
         self.y_bottom.SetValue(self.raw_image.shape[0])
         event.Skip()
@@ -473,8 +473,8 @@ class MainFrame(ToolFrame):
             try:
                 buf = self.__adjust_image()
                 cv2.imwrite(str(output_path), cv2.cvtColor(buf, cv2.COLOR_RGB2BGR))
-                self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * THUMBNAIL_HEIGHT / buf.shape[0]), THUMBNAIL_HEIGHT), interpolation=cv2.INTER_AREA))
-                self.output_image_thumbnail.set_image_zoom_position(0, THUMBNAIL_HEIGHT//2, 1.0)
+                self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
+                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
             except Exception as excep:
                 wx.MessageBox(str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
         event.Skip()
