@@ -125,6 +125,7 @@ class MainFrame(ToolFrame):
         # input image thumbnail
         sizer.Add(wx.StaticText(panel, label='ステッチング画像の任意の場所をドラッグで選択して、動画で表示したい場所をリストに追加してください。'), flag=wx.ALIGN_CENTER)
         self.input_image_thumbnail = RangeImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=True)
+        self.input_image_thumbnail.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         sizer.Add(self.input_image_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
         row += 2
 

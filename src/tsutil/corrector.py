@@ -189,6 +189,7 @@ class MainFrame(ToolFrame):
         image_panel = wx.Panel(panel)
         image_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
         self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields, field_add_mode=True)
+        self.base_image_viewer.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         self.base_image_viewer.Bind(EVT_FIELD_DELETED, self.__on_field_deleted)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)

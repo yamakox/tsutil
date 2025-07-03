@@ -89,7 +89,8 @@ class HistogramView(wx.Panel):
         self.update_view()
 
     def __on_paint(self, event):
-        dc = wx.PaintDC(self)
+        dc = wx.BufferedPaintDC(self)
+        dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             if self.bitmap is not None:

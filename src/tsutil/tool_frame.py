@@ -15,6 +15,8 @@ class ToolFrame(wx.Frame):
             self.SetMenuBar(menu_bar)
             self.Bind(wx.EVT_MENU, self.on_close_menu, self.file_menu_close)
             self.Bind(wx.EVT_MENU, self.on_save_menu, self.file_menu_save)
+        elif sys.platform == 'win32':
+            self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_3DFACE))
 
     def on_close_menu(self, event):
         self.Close()

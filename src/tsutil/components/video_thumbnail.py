@@ -233,7 +233,8 @@ class VideoThumbnail(wx.Panel):
         self.__update_bitmap()
 
     def __on_paint(self, event):
-        dc = wx.PaintDC(self)
+        dc = wx.BufferedPaintDC(self)
+        dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
@@ -266,14 +267,13 @@ class VideoThumbnail(wx.Panel):
             if self.use_x_arrow:
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
                 gc.DrawRectangle(self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[1], self.THUMBNAIL_SIZE[0], self.ARROW_SIZE)
-                bw, bh = self.bitmap_arrow_up.GetWidth(), self.bitmap_arrow_up.GetHeight()
                 if len(self.frames) > 0 and self.frame_pos is not None:
-                    x = self.RANGE_BAR_WIDTH + int(self.frame_pos * (self.THUMBNAIL_SIZE[0] - 1) / (len(self.frames) - 1) + .5) - bw // 2
+                    x = self.RANGE_BAR_WIDTH + int(self.frame_pos * (self.THUMBNAIL_SIZE[0] - 1) / (len(self.frames) - 1) + .5) - self.ARROW_SIZE // 2
                 else:
-                    x = self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0] // 2 - bw // 2
-                gc.DrawBitmap(self.bitmap_arrow_up, x, self.THUMBNAIL_SIZE[1], bw, bh)
-                gc.DrawBitmap(self.bitmap_arrow_left, self.RANGE_BAR_WIDTH - bw, self.THUMBNAIL_SIZE[1], bw, bh)
-                gc.DrawBitmap(self.bitmap_arrow_right, self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0], self.THUMBNAIL_SIZE[1], bw, bh)
+                    x = self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0] // 2 - self.ARROW_SIZE // 2
+                gc.DrawBitmap(self.bitmap_arrow_up, x, self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
+                gc.DrawBitmap(self.bitmap_arrow_left, self.RANGE_BAR_WIDTH - self.ARROW_SIZE, self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
+                gc.DrawBitmap(self.bitmap_arrow_right, self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0], self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
 
     def __on_mouse_down(self, event):
         if self.loading:
@@ -446,6 +446,7 @@ class VideoThumbnail(wx.Panel):
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
 
     def __image_catalog_load_worker(self, path, correction_model, output_path):
+        output = None
         try:
             self.frames.clear()
             parent_path = path.parent
@@ -463,8 +464,6 @@ class VideoThumbnail(wx.Panel):
                     log_fd = open(os.devnull, 'w')  # open(output_path.with_suffix('.log'), 'w'), 
                 ))
                 os.makedirs(output.parent_path / output.dir_name, exist_ok=True)
-            else:
-                output = None
             if correction_model is None:
                 base_frame = None
             else:

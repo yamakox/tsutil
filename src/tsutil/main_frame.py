@@ -19,6 +19,8 @@ MARGIN = 16
 class MainFrame(wx.Frame):
     def __init__(self, parent: wx.Window|None = None, *args, **kw):
         super().__init__(parent, title=f'{APP_NAME} v{version(PACKAGE_NAME)}', *args, **kw)
+        if sys.platform == 'win32':
+            self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_3DFACE))
 
         self.SetSize(dpi_aware_size(self, wx.Size(*WINDOW_SIZE)))
         if sys.platform == 'darwin':

@@ -295,7 +295,8 @@ class ImageViewer(wx.Panel):
     def on_paint(self, event):
         if self.buf is None:
             return
-        dc = wx.PaintDC(self)
+        dc = wx.BufferedPaintDC(self)
+        dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)

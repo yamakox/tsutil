@@ -29,7 +29,7 @@ class RangeImageViewer(ImageViewer):
         super().on_paint(event)
         if self.image is None:
             return
-        dc = wx.PaintDC(self)
+        dc = wx.BufferedPaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.Clip(wx.Region(self.regions['preview']))
