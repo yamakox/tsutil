@@ -1,10 +1,12 @@
 import wx
 import wx.adv
 import sys
-from .common import *
-from . import trimmer, extractor, corrector, adjuster, converter, converter2
 from typing import Callable
 from importlib.metadata import version, metadata
+import shutil
+import subprocess
+from .common import *
+from . import trimmer, extractor, corrector, adjuster, converter, converter2
 
 # MARK: constants
 
@@ -39,11 +41,11 @@ class MainFrame(wx.Frame):
         ]
         for i, (mainLabel, note, callback) in enumerate(buttons):
             btn = self.__make_button(panel, mainLabel, note, callback)
-            btn.DisableFocusFromKeyboard()
-            if i == 0:
-                sizer.Add(btn, flag=wx.EXPAND)
-            else:
-                sizer.Add(btn, flag=wx.EXPAND)
+            sizer.Add(btn, flag=wx.EXPAND)
+
+        if shutil.which('trainscanner') is not None:
+            btn = self.__make_button(panel, '【 TrainScanner 】', 'TrainScannerを起動します。', self.__launch_trainscanner)
+            sizer.Add(btn, flag=wx.EXPAND)
 
         panel.SetSizer(sizer)
 
@@ -54,6 +56,7 @@ class MainFrame(wx.Frame):
 
     def __make_button(self, panel: wx.Panel, mainLabel: str, note: str, callback: Callable[[wx.CommandEvent], None]) -> wx.adv.CommandLinkButton:
         btn = wx.adv.CommandLinkButton(panel, mainLabel=mainLabel, note=note)
+        btn.DisableFocusFromKeyboard()
         btn.Bind(wx.EVT_BUTTON, callback)
         return btn
 
@@ -80,6 +83,9 @@ class MainFrame(wx.Frame):
     def __launch_converter2(self, event):
         frame = converter2.MainFrame(self)
         frame.Show()
+
+    def __launch_trainscanner(self, event):
+        subprocess.Popen(['trainscanner'])
 
     def __on_close(self, event):
         event.Skip()
