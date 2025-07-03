@@ -2,6 +2,7 @@ import wx
 import wx.adv
 from pydantic import BaseModel
 import cv2
+from PIL import Image
 import time
 import threading
 from ffio import FrameWriter
@@ -473,7 +474,8 @@ class MainFrame(ToolFrame):
             event.Skip()
             return
         self.__clear()
-        self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        #self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        self.raw_image = np.asarray(Image.open(path))
         self.thumb_ratio = dpi_aware(self, THUMBNAIL_HEIGHT) / self.raw_image.shape[0]
         self.thumb_image = cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA)
         self.input_image_thumbnail.set_image(self.thumb_image)
