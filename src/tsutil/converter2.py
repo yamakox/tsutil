@@ -525,9 +525,9 @@ class MainFrame(ToolFrame):
         index, _ = self.sequence_list.HitTest(pos)
         if index != self.drag_over_index:
             if self.drag_over_index != wx.NOT_FOUND:
-                self.sequence_list.SetItemBackgroundColour(self.drag_over_index, wx.Colour(0,0,0,0))
+                self.sequence_list.SetItemBackgroundColour(self.drag_over_index, wx.Colour(255,255,255,0))
             if index != wx.NOT_FOUND:
-                self.sequence_list.SetItemBackgroundColour(index, wx.Colour(255, 0, 0, 32))
+                self.sequence_list.SetItemBackgroundColour(index, wx.Colour(255, 222, 222, 255))
             self.drag_over_index = index
         return defResult
 
