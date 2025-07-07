@@ -97,6 +97,7 @@ class MainFrame(ToolFrame):
         self.thumb_image = None
         self.thumb_ratio = None
         self.sequence = SequenceModel()
+        self.drag_over_index = wx.NOT_FOUND
         self.buf = np.zeros((MOVIE_SIZE[1], MOVIE_SIZE[0], 3), dtype=np.uint8)
         self.saving = None
 
@@ -273,7 +274,7 @@ class MainFrame(ToolFrame):
         self.sequence_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self.__on_seq_list_item_selected)
         self.sequence_list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.__on_seq_list_item_selected)
         self.sequence_list.Bind(wx.EVT_LIST_BEGIN_DRAG, self.__on_seq_list_begin_drag)
-        self.sequence_list.SetDropTarget(ListDropTarget(self.__handle_drop))
+        self.sequence_list.SetDropTarget(ListDropTarget(self.__handle_drop, self.__handle_drag_over))
         setting_sizer.Add(self.sequence_list, flag=wx.EXPAND|wx.BOTTOM, border=8)
         setting_sizer.AddGrowableRow(row)
         row += 1
@@ -516,7 +517,19 @@ class MainFrame(ToolFrame):
         self.sequence.items.insert(index, item)
         self.__clear_form()
         self.__update_sequence_list(index)
+        self.drag_over_index = wx.NOT_FOUND
         return index
+
+    def __handle_drag_over(self, x, y, defResult):
+        pos = wx.Point(x, y)
+        index, _ = self.sequence_list.HitTest(pos)
+        if index != self.drag_over_index:
+            if self.drag_over_index != wx.NOT_FOUND:
+                self.sequence_list.SetItemBackgroundColour(self.drag_over_index, wx.Colour(0,0,0,0))
+            if index != wx.NOT_FOUND:
+                self.sequence_list.SetItemBackgroundColour(index, wx.Colour(255, 0, 0, 32))
+            self.drag_over_index = index
+        return defResult
 
     def __update_setting(self):
         if self.raw_image is None:
@@ -760,10 +773,14 @@ class MainFrame(ToolFrame):
 
 # MARK: drop target for listctrl
 class ListDropTarget(wx.TextDropTarget):
-    def __init__(self, on_drop_callback):
+    def __init__(self, on_drop_callback, on_drag_over_callback):
         super().__init__()
         self.on_drop_callback = on_drop_callback
+        self.on_drag_over_callback = on_drag_over_callback
 
     def OnDropText(self, x, y, data):
         index = self.on_drop_callback(x, y, data)
         return index is not None
+
+    def OnDragOver(self, x, y, defResult):
+        return self.on_drag_over_callback(x, y, defResult)
