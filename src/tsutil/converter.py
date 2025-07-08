@@ -269,7 +269,7 @@ class MainFrame(ToolFrame):
             images = []
             for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions):
                 images.append(Image.fromarray(buf))
-            images[0].save(str(output_path), save_all=True, append_images=images[1:], duration=1000 // frame_rate.value, loop=1 if loop is None else 0)
+            images[0].save(str(output_path), save_all=True, append_images=images[1:], duration=1000 // frame_rate.value, loop=None if loop is None else 0)
         else:
             with FrameWriter(str(output_path), size=(movie_size.width, movie_size.height), fps=frame_rate.value, qmax=16) as writer:
                 for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
