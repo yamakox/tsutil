@@ -43,6 +43,7 @@ MOVIE_FILE_WILDCARD = 'Movie files (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v'
 IMAGE_CATALOG_FILE_SUFFIX = ['.txt', '.lst']
 IMAGE_CATALOG_FILE_WILDCARD = 'Image catalog files (*.txt;*.lst)|*.txt;*.lst'
 IMAGE_FILE_WILDCARD = 'Image files (*.png;*.jpg)|*.png;*.jpg'
+GIF_FILE_WILDCARD = 'GIF files (*.gif)|*.gif'
 
 # MARK: utility functions
 

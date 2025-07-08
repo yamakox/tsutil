@@ -30,9 +30,11 @@ class ThumbHeight(BaseModel):
 class FrameRate(BaseModel):
     value: int = 60
     description: str = '60秒'
+    gif: bool = False
 
 MOVIE_SIZES = [
     MovieSize(width=1280, height=720, description='HD (1280x720)'),
+    MovieSize(width=720, height=480, description='SD (720x480)'),
     MovieSize(width=1920, height=1080, description='フルHD (1920x1080)'),
     MovieSize(width=3840, height=2160, description='4K (3840x2160)'),
 ]
@@ -48,6 +50,9 @@ FRAME_RATES = [
     FrameRate(value=60, description='60 fps'),
     FrameRate(value=30, description='30 fps'),
     FrameRate(value=15, description='15 fps'),
+    FrameRate(value=5, description='5 fps (GIF)', gif=True),
+    FrameRate(value=2, description='2 fps (GIF)', gif=True),
+    FrameRate(value=1, description='1 fps (GIF)', gif=True),
 ]
 
 # MARK: events
@@ -154,7 +159,7 @@ class MainFrame(ToolFrame):
         left_sizer.Add(self.thumb_height_selector, flag=wx.EXPAND)
 
         left_sizer.Add(wx.StaticText(left_panel, label='動画の秒数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.second = wx.SpinCtrl(left_panel, value="60", min=10, max=180, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.second = wx.SpinCtrl(left_panel, value="60", min=1, max=180, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
         left_sizer.Add(self.second, flag=wx.EXPAND)
 
         left_sizer.Add(wx.StaticText(left_panel, label='フレームレート:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
@@ -251,30 +256,43 @@ class MainFrame(ToolFrame):
         x_max = img.shape[1] - movie_size.width
         if loop == 'rev':
             x_positions = np.hstack((
-                sin_space(0, x_max, frame_count // 2).astype(int),
-                sin_space(x_max, 0, frame_count // 2).astype(int),
+                sin_space(0, x_max, 1 +frame_count // 2).astype(int)[:-1],
+                sin_space(x_max, 0, 1 + frame_count // 2).astype(int)[:-1],
             ))
+        elif loop == 'fwd':
+            x_positions = np.linspace(0, x_max, 1 + frame_count, dtype=int)[:-1]
         else:
             x_positions = np.linspace(0, x_max, frame_count, dtype=int)
         if direction < 0:
             x_positions = x_max - x_positions
-        with FrameWriter(str(output_path), size=(movie_size.width, movie_size.height), fps=frame_rate.value, qmax=16) as writer:
-            for i, x in enumerate(x_positions):
-                if self.saving is None:
-                    break
-                wx.QueueEvent(self, MovieSavingEvent(i + 1, len(x_positions)))
-                writer.frame[(movie_size.height - h):, :, :] = img[:, x:(x + movie_size.width), :]
-                if thumb_img is not None:
-                    _x = int(thumb_img.shape[1] * x / img.shape[1] + .5)
-                    thumb_buf[...] = thumb_img[...]
-                    thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + THUMBNAIL_HIGHLIGHT_COLOR) // 2).astype(np.uint8)
-                    writer.frame[:thumb_size[1], :, :] = thumb_buf[:, thumb_ox:thumb_ox+thumb_size[0], :]
-                    if direction > 0 and _x + thumb_w > thumb_size[0]:
-                        writer.frame[:thumb_size[1], :thumb_w, :] = thumb_buf[:, -thumb_w:, :]
-                    elif direction < 0 and _x < thumb_ox:
-                        writer.frame[:thumb_size[1], -thumb_w:, :] = thumb_buf[:, :thumb_w, :]
-                writer.write_frame()
+        if frame_rate.gif:
+            images = []
+            for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions):
+                images.append(Image.fromarray(buf))
+            images[0].save(str(output_path), save_all=True, append_images=images[1:], duration=1000 // frame_rate.value, loop=1 if loop is None else 0)
+        else:
+            with FrameWriter(str(output_path), size=(movie_size.width, movie_size.height), fps=frame_rate.value, qmax=16) as writer:
+                for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
+                    writer.write(buf)
         wx.QueueEvent(self, MovieSavingEvent(0, 0))
+
+    def __enum_frames(self, movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, frame_buf=None):
+        for i, x in enumerate(x_positions):
+            if self.saving is None:
+                return
+            wx.QueueEvent(self, MovieSavingEvent(i + 1, len(x_positions)))
+            buf = frame_buf if frame_buf is not None else np.empty((movie_size.height, movie_size.width, 3), dtype=np.uint8)
+            buf[(movie_size.height - h):, :, :] = img[:, x:(x + movie_size.width), :]
+            if thumb_img is not None:
+                _x = int(thumb_img.shape[1] * x / img.shape[1] + .5)
+                thumb_buf[...] = thumb_img[...]
+                thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + THUMBNAIL_HIGHLIGHT_COLOR) // 2).astype(np.uint8)
+                buf[:thumb_size[1], :, :] = thumb_buf[:, thumb_ox:thumb_ox+thumb_size[0], :]
+                if direction > 0 and _x + thumb_w > thumb_size[0]:
+                    buf[:thumb_size[1], :thumb_w, :] = thumb_buf[:, -thumb_w:, :]
+                elif direction < 0 and _x < thumb_ox:
+                    buf[:thumb_size[1], -thumb_w:, :] = thumb_buf[:, :thumb_w, :]
+            yield buf
 
     def __on_movie_saving(self, event):
         self.input_image_thumbnail.set_progress(event.total, event.current)
@@ -299,14 +317,18 @@ class MainFrame(ToolFrame):
             return
 
         input_path = get_path(self.input_file_picker.GetPath())
-        output_filename = input_path.with_suffix('.mp4')
+        frame_rate = FRAME_RATES[self.frame_rate_selector.GetSelection()]
+        if frame_rate.gif:
+            output_filename = input_path.with_suffix('.gif')
+        else:
+            output_filename = input_path.with_suffix('.mp4')
 
         with wx.FileDialog(
             self, 
             '動画の保存先ファイル名を入力してください。', 
             defaultDir=str(input_path.parent),
             defaultFile=output_filename.name,
-            wildcard=MOVIE_FILE_WILDCARD,
+            wildcard=GIF_FILE_WILDCARD if frame_rate.gif else MOVIE_FILE_WILDCARD,
             style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
