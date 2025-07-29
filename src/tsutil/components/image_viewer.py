@@ -420,8 +420,8 @@ class ImageViewer(wx.Panel):
     def on_mouse_move(self, event):
         if self.image is None:
             return
-        x = min(max(0, event.GetX()), self.client_width - 1)
-        y = min(max(0, event.GetY()), self.client_height - 1)
+        x = event.GetX()
+        y = event.GetY()
         if self.dragging == DRAGGING_PREVIEW:
             dx, dy = (x - self.dragging_x) / self.zoom_ratio, (y - self.dragging_y) / self.zoom_ratio
             self.image_ox = self.dragging_image_ox - dx

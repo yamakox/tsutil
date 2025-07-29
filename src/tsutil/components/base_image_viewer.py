@@ -86,6 +86,7 @@ class BaseImageViewer(ImageViewer):
             if fields:
                 wx.QueueEvent(self, FieldDeletedEvent(fields[0]))
                 return
+            self.CaptureMouse()
             self.dragging = DRAGGING_RECT
             self.dragging_rect = Rect(left=ix, top=iy, right=ix, bottom=iy)
         else:
@@ -102,6 +103,8 @@ class BaseImageViewer(ImageViewer):
                 if self.dragging_rect.bottom < self.dragging_rect.top:
                     self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
                 wx.QueueEvent(self, FieldAddedEvent(self.dragging_rect))
+            if self.HasCapture():
+                self.ReleaseMouse()
             self.dragging = DRAGGING_NONE
             self.dragging_rect = None
             self.Refresh()
