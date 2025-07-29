@@ -97,7 +97,7 @@ class BaseImageViewer(ImageViewer):
             return
         if self.dragging == DRAGGING_RECT:
             sz = self.dragging_rect.get_size()
-            if sz[0] * sz[1]:
+            if sz[0] >= 8 and sz[1] >= 8:
                 if self.dragging_rect.right < self.dragging_rect.left:
                     self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left
                 if self.dragging_rect.bottom < self.dragging_rect.top:
