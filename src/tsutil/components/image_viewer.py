@@ -44,6 +44,7 @@ class ImageViewer(wx.Panel):
     def __init__(self, parent, min_size=MIN_SIZE, enable_zoom=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.SetMinSize(dpi_aware_size(parent, wx.Size(*min_size)))
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SCROLL_BAR_SIZE = dpi_aware(parent, SCROLL_BAR_SIZE)
         self.GRID_SIZE = dpi_aware(parent, GRID_SIZE)
         self.PROGRESS_BAR_HEIGHT = dpi_aware(parent, PROGRESS_BAR_HEIGHT)
@@ -298,7 +299,7 @@ class ImageViewer(wx.Panel):
     def on_paint(self, event):
         if self.buf is None:
             return
-        dc = wx.BufferedPaintDC(self)
+        dc = wx.AutoBufferedPaintDC(self)
         dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:

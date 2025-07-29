@@ -55,7 +55,7 @@ class BaseImageViewer(ImageViewer):
         super().on_paint(event)
         if self.image is None:
             return
-        dc = wx.BufferedPaintDC(self)
+        dc = wx.AutoBufferedPaintDC(self)
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.Clip(wx.Region(self.regions['preview']))

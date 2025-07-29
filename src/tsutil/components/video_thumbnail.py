@@ -98,6 +98,7 @@ class VideoThumbnail(wx.Panel):
         self.client_width = self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH * 2
         self.client_height = self.THUMBNAIL_SIZE[1] + (self.ARROW_SIZE if use_x_arrow else 0)
         super().__init__(parent, size=wx.Size(self.client_width, self.client_height), *args, **kwargs)
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.use_range_bar = use_range_bar
         self.use_x_arrow = use_x_arrow
         self.histogram_view = None
@@ -233,7 +234,7 @@ class VideoThumbnail(wx.Panel):
         self.__update_bitmap()
 
     def __on_paint(self, event):
-        dc = wx.BufferedPaintDC(self)
+        dc = wx.AutoBufferedPaintDC(self)
         dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:
