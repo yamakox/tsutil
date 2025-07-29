@@ -72,21 +72,25 @@ class DeshakingImageViewer(BaseImageViewer):
         p = self.perspective_points
         cx, cy = self.get_view_position(*p.left_top.to_tuple())
         if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy  + self.CORNER_SIZE:
+            self.CaptureMouse()
             self.dragging = DRAGGING_CORNER_LT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.right_top.to_tuple())
         if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy  + self.CORNER_SIZE:
+            self.CaptureMouse()
             self.dragging = DRAGGING_CORNER_RT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.right_bottom.to_tuple())
         if cx - self.CORNER_SIZE <= x < cx and cy - self.CORNER_SIZE <= y < cy:
+            self.CaptureMouse()
             self.dragging = DRAGGING_CORNER_RB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.left_bottom.to_tuple())
         if cx <= x < cx + self.CORNER_SIZE and cy - self.CORNER_SIZE <= y < cy:
+            self.CaptureMouse()
             self.dragging = DRAGGING_CORNER_LB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
@@ -99,6 +103,8 @@ class DeshakingImageViewer(BaseImageViewer):
         y = event.GetY()
         if self.dragging in [DRAGGING_CORNER_LT, DRAGGING_CORNER_RT, DRAGGING_CORNER_RB, DRAGGING_CORNER_LB]:
             wx.QueueEvent(self, PerspectivePointsChangedEvent(self.perspective_points))
+            if self.HasCapture():
+                self.ReleaseMouse()
             self.dragging = DRAGGING_NONE
             self.dragging_x, self.dragging_y = 0, 0
         else:

@@ -51,6 +51,7 @@ class RangeImageViewer(ImageViewer):
         y = event.GetY()
         ix, iy = self.get_image_position(mouse_pos=(x, y))
         if self.regions['preview'].Contains(x, y) and ix is not None:
+            self.CaptureMouse()
             self.dragging = DRAGGING_RECT
             self.dragging_rect = Rect(left=ix, top=iy, right=ix, bottom=iy)
             self.dragging_x = ix
@@ -69,6 +70,8 @@ class RangeImageViewer(ImageViewer):
                 if self.dragging_rect.bottom < self.dragging_rect.top:
                     self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
                 wx.QueueEvent(self, FieldSelectedEvent(self.dragging_rect))
+            if self.HasCapture():
+                self.ReleaseMouse()
             self.dragging = DRAGGING_NONE
             self.dragging_rect = None
             self.dragging_x = None
