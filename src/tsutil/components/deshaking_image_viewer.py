@@ -109,10 +109,10 @@ class DeshakingImageViewer(BaseImageViewer):
             return
         iw_min = int(self.image.shape[1] * MIN_SIZE_RATIO)
         ih_min = int(self.image.shape[0] * MIN_SIZE_RATIO)
-        x = event.GetX()
-        y = event.GetY()
+        cx, cy = event.GetX() - self.dragging_x, event.GetY() - self.dragging_y
+        cx = min(max(self.regions['preview'].GetLeft(), cx), self.regions['preview'].GetRight())
+        cy = min(max(self.regions['preview'].GetTop(), cy), self.regions['preview'].GetBottom())
         if self.dragging == DRAGGING_CORNER_LT:
-            cx, cy = x - self.dragging_x, y - self.dragging_y
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
             ix = min(max(0, int(ix + .5)), self.perspective_points.right_limit() - iw_min)
             iy = min(max(0, int(iy + .5)), self.perspective_points.bottom_limit() - ih_min)
@@ -120,7 +120,6 @@ class DeshakingImageViewer(BaseImageViewer):
             self.perspective_points.left_top.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_RT:
-            cx, cy = x - self.dragging_x, y - self.dragging_y
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
             ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + .5)), self.image.shape[1])
             iy = min(max(0, int(iy + .5)), self.perspective_points.bottom_limit() - ih_min)
@@ -128,7 +127,6 @@ class DeshakingImageViewer(BaseImageViewer):
             self.perspective_points.right_top.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_RB:
-            cx, cy = x - self.dragging_x, y - self.dragging_y
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
             ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + .5)), self.image.shape[1])
             iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + .5)), self.image.shape[0])
@@ -136,7 +134,6 @@ class DeshakingImageViewer(BaseImageViewer):
             self.perspective_points.right_bottom.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_LB:
-            cx, cy = x - self.dragging_x, y - self.dragging_y
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
             ix = min(max(0, int(ix + .5)), self.perspective_points.right_limit() - iw_min)
             iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + .5)), self.image.shape[0])

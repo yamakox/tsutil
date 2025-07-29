@@ -95,9 +95,9 @@ class VideoThumbnail(wx.Panel):
         self.THUMBNAIL_SIZE = (dpi_aware(parent, THUMBNAIL_SIZE[0]), dpi_aware(parent, THUMBNAIL_SIZE[1]))
         self.FRAME_THUMBNAIL_MIN_WIDTH = dpi_aware(parent, FRAME_THUMBNAIL_MIN_WIDTH)
 
-        w = self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH * 2
-        h = self.THUMBNAIL_SIZE[1] + (self.ARROW_SIZE if use_x_arrow else 0)
-        super().__init__(parent, size=wx.Size(w, h), *args, **kwargs)
+        self.client_width = self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH * 2
+        self.client_height = self.THUMBNAIL_SIZE[1] + (self.ARROW_SIZE if use_x_arrow else 0)
+        super().__init__(parent, size=wx.Size(self.client_width, self.client_height), *args, **kwargs)
         self.use_range_bar = use_range_bar
         self.use_x_arrow = use_x_arrow
         self.histogram_view = None
@@ -282,22 +282,28 @@ class VideoThumbnail(wx.Panel):
         y = event.GetY()
         if self.use_range_bar and y < self.THUMBNAIL_SIZE[1]:
             if x < self.start_pos + self.RANGE_BAR_WIDTH:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_LEFT
                 self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
             elif self.end_pos + self.RANGE_BAR_WIDTH < x:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_RIGHT
                 self.dragging_dx = x - (self.end_pos + self.RANGE_BAR_WIDTH)
             else:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_RANGE
                 self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
         elif self.use_x_arrow and y >= self.THUMBNAIL_SIZE[1] and len(self.frames) > 0:
             if x < self.RANGE_BAR_WIDTH:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_LEFT_ARROW
             elif x < self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_X_ARROW
                 self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
                 self.__update_bitmap()
             else:
+                self.CaptureMouse()
                 self.dragging = DRAGGING_RIGHT_ARROW
         event.Skip()
 
@@ -317,6 +323,8 @@ class VideoThumbnail(wx.Panel):
                 self.frame_pos = min(self.frame_pos + 1, len(self.frames) - 1)
                 self.__update_bitmap()
                 wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
+        if self.HasCapture():
+            self.ReleaseMouse()
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
         event.Skip()
@@ -324,7 +332,7 @@ class VideoThumbnail(wx.Panel):
     def __on_mouse_move(self, event):
         if self.loading or not event.Dragging() or not event.LeftIsDown():
             return
-        x = event.GetX()
+        x = min(max(0, event.GetX()), self.client_width - 1)
         if self.dragging == DRAGGING_LEFT:
             self.start_pos = max(0, min(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.end_pos))
             self.__update_bitmap()

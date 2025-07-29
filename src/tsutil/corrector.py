@@ -404,11 +404,13 @@ class MainFrame(ToolFrame):
         self.model.shaking_detection_fields.append(event.field)
         self.setting_changed_time = time.time()
         self.__set_sample_image_viewer()
+        self.base_image_viewer.Refresh()
 
     def __on_field_deleted(self, event):
         self.model.shaking_detection_fields.remove(event.field)
         self.setting_changed_time = time.time()
         self.__set_sample_image_viewer()
+        self.base_image_viewer.Refresh()
 
     def __on_perspective_points_changed(self, event):
         self.__set_sample_image_viewer()
