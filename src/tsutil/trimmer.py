@@ -1,6 +1,7 @@
 import wx
 import wx.adv
 from pathlib import Path
+import os
 from subprocess import Popen, PIPE
 from .common import *
 from .tool_frame import ToolFrame
@@ -130,6 +131,8 @@ class MainFrame(ToolFrame):
                 wx.MessageBox(f'トリミングに失敗しました:\n{stderr_data}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
                 event.Skip()
                 return
+            m_time = input_path.stat().st_mtime + ss
+            os.utime(str(output_path), (m_time, m_time))
             self.output_video_thumbnail.load_video(output_path)
         event.Skip()
 
