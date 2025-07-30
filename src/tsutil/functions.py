@@ -136,8 +136,12 @@ def _make_sharp_kernel(k):
 
 def sigmoid_space(start, stop, n, c1=-10, c2=10):
     sigmoid = 1 / (1 + np.exp(-np.linspace(c1, c2, n)))
-    sigmoid = (sigmoid - sigmoid.min()) / (sigmoid.max() - sigmoid.min())
-    return start + (stop - start) * sigmoid
+    d = sigmoid.max() - sigmoid.min()
+    if d:
+        sigmoid = (sigmoid - sigmoid.min()) / d
+        return start + (stop - start) * sigmoid
+    else:
+        return np.linspace(start, stop, n)
 
 def sin_space(start, stop, n):
     s = np.sin(np.linspace(-np.pi/2, np.pi/2, n))
