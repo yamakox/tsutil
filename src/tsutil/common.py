@@ -60,13 +60,15 @@ def get_spin_ctrl_value(spin_ctrl):
     value = spin_ctrl.GetTextValue()
     if len(value) == 0:
         return spin_ctrl.GetValue()
-    _min, _max = spin_ctrl.GetMin(), spin_ctrl.GetMax()
-    if type(_min) == int:
-        value = int(value)
-    else:
-        value = float(value)
-    return min(max(_min, value), _max)
-
+    try:
+        _min, _max = spin_ctrl.GetMin(), spin_ctrl.GetMax()
+        if type(_min) == int:
+            value = int(value)
+        else:
+            value = float(value)
+        return min(max(_min, value), _max)
+    except:
+        return spin_ctrl.GetValue()
 
 # MARK: common models
 
