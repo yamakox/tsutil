@@ -184,9 +184,11 @@ class MainFrame(ToolFrame):
         self.loop_no_button = wx.RadioButton(right_panel, label='終端に達したら動画は終了する(ループしない)', style=wx.RB_GROUP)
         self.loop_no_button.SetValue(True)
         right_sizer.Add(self.loop_no_button, flag=wx.ALIGN_LEFT)
-        self.loop_forward_button = wx.RadioButton(right_panel, label='終端に達したら先頭に戻る(ループする)')
+        self.loop_forward_button = wx.RadioButton(right_panel, label='終端に達したら先頭に戻る(等速でループする)')
         right_sizer.Add(self.loop_forward_button, flag=wx.ALIGN_LEFT)
-        self.loop_reverse_button = wx.RadioButton(right_panel, label='終端に達したら反対方向に戻る(ループする)')
+        self.loop_forward2_button = wx.RadioButton(right_panel, label='終端に達したら先頭に戻る(加速→減速でループする)')
+        right_sizer.Add(self.loop_forward2_button, flag=wx.ALIGN_LEFT)
+        self.loop_reverse_button = wx.RadioButton(right_panel, label='終端に達したら反対方向に戻る(加速→減速でループする)')
         right_sizer.Add(self.loop_reverse_button, flag=wx.ALIGN_LEFT|wx.BOTTOM, border=MARGIN)
 
         right_panel.SetSizerAndFit(right_sizer)
@@ -215,6 +217,8 @@ class MainFrame(ToolFrame):
             loop = None
             if self.loop_forward_button.GetValue():
                 loop = 'fwd'
+            elif self.loop_forward2_button.GetValue():
+                loop = 'fwd2'
             elif self.loop_reverse_button.GetValue():
                 loop = 'rev'
         except Exception as excep:
@@ -240,7 +244,7 @@ class MainFrame(ToolFrame):
             thumb_w = int((movie_size.width * movie_size.width) / w + .5)
             thumb_ox = 0
         img = cv2.resize(self.raw_image, (w, h), interpolation=cv2.INTER_AREA)
-        if loop == 'fwd':
+        if loop in ('fwd', 'fwd2'):
             if direction > 0:
                 img = np.hstack((img, img[:, :movie_size.width, :]))
                 if thumb_img is not None:
@@ -256,11 +260,13 @@ class MainFrame(ToolFrame):
         x_max = img.shape[1] - movie_size.width
         if loop == 'rev':
             x_positions = np.hstack((
-                sin_space(0, x_max, 1 +frame_count // 2).astype(int)[:-1],
+                sin_space(0, x_max, 1 + frame_count // 2).astype(int)[:-1],
                 sin_space(x_max, 0, 1 + frame_count // 2).astype(int)[:-1],
             ))
         elif loop == 'fwd':
             x_positions = np.linspace(0, x_max, 1 + frame_count, dtype=int)[:-1]
+        elif loop == 'fwd2':
+            x_positions = sin_space(0, x_max, 1 + frame_count).astype(int)[:-1]
         else:
             x_positions = np.linspace(0, x_max, frame_count, dtype=int)
         if direction < 0:
