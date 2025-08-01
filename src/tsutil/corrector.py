@@ -381,6 +381,7 @@ class MainFrame(ToolFrame):
         if self.base_frame_button.GetValue():
             self.model.base_frame_pos = event.position
             self.__set_base_image_viewer()
+            self.__set_sample_image_viewer()
         elif self.sample_frame_button.GetValue():
             self.model.sample_frame_pos = event.position
             self.__set_sample_image_viewer()
