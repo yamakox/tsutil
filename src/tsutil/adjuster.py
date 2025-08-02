@@ -152,7 +152,7 @@ MEASUREMENT_DATASET = {
     ), 
     'E3系': M(
         height=4080, 
-        factor=0.97, 
+        factor=0.96, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (6000, '1両目のノーズ終端'), 
@@ -167,7 +167,7 @@ MEASUREMENT_DATASET = {
     ), 
     'East-i E926形': M(
         height=4080, 
-        factor=0.97, 
+        factor=0.96, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (6000, '1両目のノーズ終端'), 
@@ -319,7 +319,7 @@ class MainFrame(ToolFrame):
         option_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(0, 4))
         option_sizer.AddGrowableCol(0)
         option_sizer.Add(wx.StaticText(option_panel, label='アンシャープマスクの適用 (0.0: 適用しない):', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.5", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.0", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
         option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
         option_panel.SetSizerAndFit(option_sizer)
         setting_sizer.Add(option_panel, flag=wx.EXPAND)
