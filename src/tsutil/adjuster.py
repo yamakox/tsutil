@@ -131,7 +131,7 @@ MEASUREMENT_DATASET = {
     ), 
     'E7/W7系': M(
         height=3650, 
-        factor=0.97, 
+        factor=1.00, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (9100, '1両目のノーズ終端'), 
@@ -152,7 +152,7 @@ MEASUREMENT_DATASET = {
     ), 
     'E3系': M(
         height=4080, 
-        factor=0.96, 
+        factor=1.00, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (6000, '1両目のノーズ終端'), 
@@ -167,7 +167,7 @@ MEASUREMENT_DATASET = {
     ), 
     'East-i E926形': M(
         height=4080, 
-        factor=0.96, 
+        factor=1.00, 
         positions=[
             (0, '1両目のノーズ先端'), 
             (6000, '1両目のノーズ終端'), 

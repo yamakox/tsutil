@@ -248,7 +248,7 @@ class MainFrame(ToolFrame):
             return
         self.base_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.base_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         self.deshaking_correction.set_base_image(self.base_frame)
-        frame = (self.base_frame // 256).astype(np.uint8)  if self.base_frame.dtype == np.uint16 else self.base_frame
+        frame = (self.base_frame // 256).astype(np.uint8) if self.base_frame.dtype == np.uint16 else self.base_frame
         self.base_image_viewer.set_image(frame)
 
     def __set_sample_image_viewer(self):
@@ -266,15 +266,20 @@ class MainFrame(ToolFrame):
         fields = self.model.shaking_detection_fields if self.model.use_deshake_correction else []
         angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
         mat = self.deshaking_correction.compute(fields, angle)
-        frame = (self.sample_frame // 256).astype(np.uint8)  if self.sample_frame.dtype == np.uint16 else self.sample_frame
+        frame = (self.sample_frame // 256).astype(np.uint8) if self.sample_frame.dtype == np.uint16 else self.sample_frame
         deshaked_frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
         if self.model.use_overlay:
+            base_frame = (self.base_frame // 256).astype(np.uint8) if self.base_frame.dtype == np.uint16 else self.base_frame
+            if angle:
+                h, w = base_frame.shape[:2]
+                mat_r = cv2.getRotationMatrix2D((w/2, h/2), angle, 1.0)
+                base_frame = cv2.warpAffine(base_frame, mat_r, (w, h), flags=cv2.INTER_AREA)
             if self.model.use_nega:
-                deshaked_frame = deshaked_frame // 2 + (255 - self.base_frame) // 2
+                deshaked_frame = deshaked_frame // 2 + (255 - base_frame) // 2
             else:
-                deshaked_frame = deshaked_frame // 2 + self.base_frame // 2
+                deshaked_frame = deshaked_frame // 2 + base_frame // 2
         self.deshaking_image_viewer.set_image(deshaked_frame)
-        self.deshaking_image_viewer.set_field_visible(self.model.use_overlay)
+        self.deshaking_image_viewer.set_field_visible(self.model.use_overlay and not self.model.use_rotation_correction)
         self.deshaking_image_viewer.set_grid(self.model.use_grid)
 
         # clip image
