@@ -6,7 +6,7 @@ from .common import APP_NAME
 from .main_frame import MainFrame
 
 plt.switch_backend('Agg')
-Image.MAX_IMAGE_PIXELS = 1000000 * 3840
+Image.MAX_IMAGE_PIXELS = 5000000 * 3840
 
 # MARK: app instance
 
