@@ -75,25 +75,25 @@ class ClipImageViewer(BaseImageViewer):
         y = event.GetY()
         cx, cy = self.get_view_position(self.clip.left, self.clip.top)
         if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy  + self.CORNER_SIZE:
-            self.CaptureMouse()
+            capture_mouse(self)
             self.dragging = DRAGGING_CORNER_LT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(self.clip.right, self.clip.top)
         if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy  + self.CORNER_SIZE:
-            self.CaptureMouse()
+            capture_mouse(self)
             self.dragging = DRAGGING_CORNER_RT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(self.clip.right, self.clip.bottom)
         if cx - self.CORNER_SIZE <= x < cx and cy - self.CORNER_SIZE <= y < cy:
-            self.CaptureMouse()
+            capture_mouse(self)
             self.dragging = DRAGGING_CORNER_RB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(self.clip.left, self.clip.bottom)
         if cx <= x < cx + self.CORNER_SIZE and cy - self.CORNER_SIZE <= y < cy:
-            self.CaptureMouse()
+            capture_mouse(self)
             self.dragging = DRAGGING_CORNER_LB
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
@@ -106,8 +106,7 @@ class ClipImageViewer(BaseImageViewer):
         y = event.GetY()
         if self.dragging in [DRAGGING_CORNER_LT, DRAGGING_CORNER_RT, DRAGGING_CORNER_RB, DRAGGING_CORNER_LB]:
             wx.QueueEvent(self, ClipRectChangedEvent(self.clip))
-            if self.HasCapture():
-                self.ReleaseMouse()
+            release_mouse(self)
             self.dragging = DRAGGING_NONE
             self.dragging_x, self.dragging_y = 0, 0
         else:

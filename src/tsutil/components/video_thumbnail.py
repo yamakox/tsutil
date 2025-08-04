@@ -283,28 +283,28 @@ class VideoThumbnail(wx.Panel):
         y = event.GetY()
         if self.use_range_bar and y < self.THUMBNAIL_SIZE[1]:
             if x < self.start_pos + self.RANGE_BAR_WIDTH:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_LEFT
                 self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
             elif self.end_pos + self.RANGE_BAR_WIDTH < x:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_RIGHT
                 self.dragging_dx = x - (self.end_pos + self.RANGE_BAR_WIDTH)
             else:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_RANGE
                 self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
         elif self.use_x_arrow and y >= self.THUMBNAIL_SIZE[1] and len(self.frames) > 0:
             if x < self.RANGE_BAR_WIDTH:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_LEFT_ARROW
             elif x < self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_X_ARROW
                 self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
                 self.__update_bitmap()
             else:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_RIGHT_ARROW
         event.Skip()
 
@@ -324,8 +324,7 @@ class VideoThumbnail(wx.Panel):
                 self.frame_pos = min(self.frame_pos + 1, len(self.frames) - 1)
                 self.__update_bitmap()
                 wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
-        if self.HasCapture():
-            self.ReleaseMouse()
+        release_mouse(self)
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
         event.Skip()

@@ -361,14 +361,14 @@ class ImageViewer(wx.Panel):
         y = event.GetY()
         h, w = self.buf.shape[:2]
         if self.regions['preview'].Contains(x, y):
-            self.CaptureMouse()
+            capture_mouse(self)
             self.dragging = DRAGGING_PREVIEW
             self.dragging_x, self.dragging_y = x, y
             self.dragging_image_ox, self.dragging_image_oy = self.image_ox, self.image_oy
         elif self.regions['hscroll'].Contains(x, y):
             hsl = w / self.zoomed_image.shape[1] * w
             if hsl < w:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_HSCROLL
                 ox = self.image_ox / self.image.shape[1] * w
                 hsl_min = max(0, int(ox - hsl * .5 + .5))
@@ -385,7 +385,7 @@ class ImageViewer(wx.Panel):
         elif self.regions['vscroll'].Contains(x, y):
             vsl = h / self.zoomed_image.shape[0] * h
             if vsl < h:
-                self.CaptureMouse()
+                capture_mouse(self)
                 self.dragging = DRAGGING_VSCROLL
                 oy = self.image_oy / self.image.shape[0] * h
                 vsl_min = max(0, int(oy - vsl * .5 + .5))
@@ -410,8 +410,7 @@ class ImageViewer(wx.Panel):
                 self.fire_mouse_click_image(x, y)
             if not self.regions['preview'].Contains(x, y):
                 self.fire_mouse_over_image()
-        if self.HasCapture():
-            self.ReleaseMouse()
+        release_mouse(self)
         self.dragging = DRAGGING_NONE
         self.dragging_x = 0
         self.dragging_y = 0

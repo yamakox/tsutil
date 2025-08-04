@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import logging
 import os
+import sys
 import wx
 from dotenv import load_dotenv
 
@@ -55,7 +56,6 @@ def get_path(path: str) -> Path:
 def path_exists(path: Path) -> bool:
     return path and path.exists()
 
-
 def get_spin_ctrl_value(spin_ctrl):
     value = spin_ctrl.GetTextValue()
     if len(value) == 0:
@@ -69,6 +69,18 @@ def get_spin_ctrl_value(spin_ctrl):
         return min(max(_min, value), _max)
     except:
         return spin_ctrl.GetValue()
+
+if sys.platform == 'win32':
+    def capture_mouse(window: wx.Window):
+        window.CaptureMouse()
+    def release_mouse(window: wx.Window):
+        if window.HasCapture():
+            window.ReleaseMouse()
+else:
+    def capture_mouse(window: wx.Window):
+        pass
+    def release_mouse(window: wx.Window):
+        pass
 
 # MARK: common models
 
