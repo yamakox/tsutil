@@ -75,7 +75,7 @@ class ImageViewer(wx.Panel):
         self.bitmap_arrow_down = resource.get_bitmap_arrow_down()
         self.bitmap_arrow_right = resource.get_bitmap_arrow_right()
 
-        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.Bind(wx.EVT_PAINT, self.__on_paint)
         self.Bind(wx.EVT_SIZE, self.on_size)
 
         self.Bind(wx.EVT_LEFT_DOWN, self.on_mouse_down)
@@ -297,63 +297,66 @@ class ImageViewer(wx.Panel):
             self.__zoom_and_update_preview()
         self.fire_mouse_over_image()
 
-    def on_paint(self, event):
-        if self.buf is None:
-            return
+    def __on_paint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
         dc.Clear()
         gc = wx.GraphicsContext.Create(dc)
         if gc:
-            gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
-            bmp_size = self.bitmap.GetSize()
-            gc.DrawBitmap(self.bitmap, 0, 0, bmp_size.GetWidth(), bmp_size.GetHeight())
-            gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
-            h, w = self.buf.shape[:2]
-            gc.DrawRectangle(0, h, w, self.SCROLL_BAR_SIZE)
-            gc.DrawRectangle(w, 0, self.SCROLL_BAR_SIZE, h)
-            if self.image is None:
-                return
-            gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
-            hsl = w / self.zoomed_image.shape[1] * w
-            if hsl < w:
-                ox = self.image_ox / self.image.shape[1] * w
-                hsl_min = max(0, int(ox - hsl * .5 + .5))
-                hsl_max = min(w, int(ox + hsl * .5 + .5))
-                gc.DrawRectangle(hsl_min, h, hsl_max - hsl_min, self.SCROLL_BAR_SIZE)
-            vsl = h / self.zoomed_image.shape[0] * h
-            if vsl < h:
-                oy = self.image_oy / self.image.shape[0] * h
-                vsl_min = max(0, int(oy - vsl * .5 + .5))
-                vsl_max = min(h, int(oy + vsl * .5 + .5))
-                gc.DrawRectangle(w, vsl_min, self.SCROLL_BAR_SIZE, vsl_max - vsl_min)
-            if self.use_grid:
-                rgn = self.regions['preview']
-                rgn_ox = (rgn.left + rgn.right) // 2
-                rgn_oy = (rgn.top + rgn.bottom) // 2
-                gc.Clip(wx.Region(rgn))
-                gc.SetPen(wx.Pen(wx.Colour(80, 80, 80, 160)))
-                gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
-                if self.grid_center_only:
-                    gc.DrawRectangle(rgn_ox, rgn.top, .5, rgn.bottom - rgn.top)
-                    gc.DrawRectangle(rgn.left, rgn_oy, rgn.right - rgn.left, .5)
-                else:
-                    for x in range(0, (rgn.right - rgn.left) // 2, self.GRID_SIZE):
-                        gc.DrawRectangle(rgn_ox + x, rgn.top, .5, rgn.bottom - rgn.top)
-                        if x:
-                            gc.DrawRectangle(rgn_ox - x, rgn.top, .5, rgn.bottom - rgn.top)
-                    for y in range(0, (rgn.bottom - rgn.top) // 2, self.GRID_SIZE):
-                        gc.DrawRectangle(rgn.left, rgn_oy + y, rgn.right - rgn.left, .5)
-                        if y:
-                            gc.DrawRectangle(rgn.left, rgn_oy - y, rgn.right - rgn.left, .5)
-                gc.ResetClip()
-            if self.progress_total > 0:
-                rgn = self.regions['preview']
-                gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))
-                gc.DrawRectangle(rgn.GetLeft(), rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT, 
-                                 rgn.GetWidth(), self.PROGRESS_BAR_HEIGHT)
-                gc.SetBrush(wx.Brush(wx.Colour(0, 255, 64, 255)))
-                gc.DrawRectangle(rgn.GetLeft() + 1, rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT + 1, 
-                                 min(self.progress_current * rgn.GetWidth() // self.progress_total, rgn.GetWidth() - 2), self.PROGRESS_BAR_HEIGHT - 2)
+            self.on_paint(event, gc)
+
+    def on_paint(self, event, gc: wx.GraphicsContext):
+        if self.buf is None:
+            return
+        gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
+        bmp_size = self.bitmap.GetSize()
+        gc.DrawBitmap(self.bitmap, 0, 0, bmp_size.GetWidth(), bmp_size.GetHeight())
+        gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
+        h, w = self.buf.shape[:2]
+        gc.DrawRectangle(0, h, w, self.SCROLL_BAR_SIZE)
+        gc.DrawRectangle(w, 0, self.SCROLL_BAR_SIZE, h)
+        if self.image is None:
+            return
+        gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
+        hsl = w / self.zoomed_image.shape[1] * w
+        if hsl < w:
+            ox = self.image_ox / self.image.shape[1] * w
+            hsl_min = max(0, int(ox - hsl * .5 + .5))
+            hsl_max = min(w, int(ox + hsl * .5 + .5))
+            gc.DrawRectangle(hsl_min, h, hsl_max - hsl_min, self.SCROLL_BAR_SIZE)
+        vsl = h / self.zoomed_image.shape[0] * h
+        if vsl < h:
+            oy = self.image_oy / self.image.shape[0] * h
+            vsl_min = max(0, int(oy - vsl * .5 + .5))
+            vsl_max = min(h, int(oy + vsl * .5 + .5))
+            gc.DrawRectangle(w, vsl_min, self.SCROLL_BAR_SIZE, vsl_max - vsl_min)
+        if self.use_grid:
+            rgn = self.regions['preview']
+            rgn_ox = (rgn.left + rgn.right) // 2
+            rgn_oy = (rgn.top + rgn.bottom) // 2
+            gc.Clip(wx.Region(rgn))
+            gc.SetPen(wx.Pen(wx.Colour(80, 80, 80, 160)))
+            gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
+            if self.grid_center_only:
+                gc.DrawRectangle(rgn_ox, rgn.top, .5, rgn.bottom - rgn.top)
+                gc.DrawRectangle(rgn.left, rgn_oy, rgn.right - rgn.left, .5)
+            else:
+                for x in range(0, (rgn.right - rgn.left) // 2, self.GRID_SIZE):
+                    gc.DrawRectangle(rgn_ox + x, rgn.top, .5, rgn.bottom - rgn.top)
+                    if x:
+                        gc.DrawRectangle(rgn_ox - x, rgn.top, .5, rgn.bottom - rgn.top)
+                for y in range(0, (rgn.bottom - rgn.top) // 2, self.GRID_SIZE):
+                    gc.DrawRectangle(rgn.left, rgn_oy + y, rgn.right - rgn.left, .5)
+                    if y:
+                        gc.DrawRectangle(rgn.left, rgn_oy - y, rgn.right - rgn.left, .5)
+            gc.ResetClip()
+        if self.progress_total > 0:
+            rgn = self.regions['preview']
+            gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))
+            gc.DrawRectangle(rgn.GetLeft(), rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT, 
+                                rgn.GetWidth(), self.PROGRESS_BAR_HEIGHT)
+            gc.SetBrush(wx.Brush(wx.Colour(0, 255, 64, 255)))
+            gc.DrawRectangle(rgn.GetLeft() + 1, rgn.GetBottom() - self.PROGRESS_BAR_HEIGHT + 1, 
+                                min(self.progress_current * rgn.GetWidth() // self.progress_total, rgn.GetWidth() - 2), self.PROGRESS_BAR_HEIGHT - 2)
 
     def on_mouse_down(self, event):
         if self.image is None:

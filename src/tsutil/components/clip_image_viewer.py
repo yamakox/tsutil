@@ -36,37 +36,34 @@ class ClipImageViewer(BaseImageViewer):
         self.CORNER_SIZE = dpi_aware(parent, CORNER_SIZE)
         self.PEN_WIDTH = dpi_aware(parent, PEN_WIDTH)
 
-    def on_paint(self, event):
-        super().on_paint(event)
+    def on_paint(self, event, gc: wx.GraphicsContext):
+        super().on_paint(event, gc)
         if self.image is None:
             return
-        dc = wx.AutoBufferedPaintDC(self)
-        gc = wx.GraphicsContext.Create(dc)
-        if gc:
-            gc.Clip(wx.Region(self.regions['preview']))
-            if not self.clip.is_none():
-                lt = self.get_view_position(self.clip.left, self.clip.top)
-                rt = self.get_view_position(self.clip.right, self.clip.top)
-                rb = self.get_view_position(self.clip.right, self.clip.bottom)
-                lb = self.get_view_position(self.clip.left, self.clip.bottom)
+        gc.Clip(wx.Region(self.regions['preview']))
+        if not self.clip.is_none():
+            lt = self.get_view_position(self.clip.left, self.clip.top)
+            rt = self.get_view_position(self.clip.right, self.clip.top)
+            rb = self.get_view_position(self.clip.right, self.clip.bottom)
+            lb = self.get_view_position(self.clip.left, self.clip.bottom)
 
-                gc.SetPen(wx.Pen(wx.Colour(255, 128, 0, 192), width=self.PEN_WIDTH, style=wx.PENSTYLE_SOLID))
-                gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
-                path = gc.CreatePath()
-                path.MoveToPoint(lt[0], lt[1])
-                path.AddLineToPoint(rt[0] - self.PEN_WIDTH, rt[1])
-                path.AddLineToPoint(rb[0] - self.PEN_WIDTH, rb[1] - self.PEN_WIDTH)
-                path.AddLineToPoint(lb[0], lb[1] - self.PEN_WIDTH)
-                path.CloseSubpath()
-                gc.DrawPath(path)
+            gc.SetPen(wx.Pen(wx.Colour(255, 128, 0, 192), width=self.PEN_WIDTH, style=wx.PENSTYLE_SOLID))
+            gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 0)))
+            path = gc.CreatePath()
+            path.MoveToPoint(lt[0], lt[1])
+            path.AddLineToPoint(rt[0] - self.PEN_WIDTH, rt[1])
+            path.AddLineToPoint(rb[0] - self.PEN_WIDTH, rb[1] - self.PEN_WIDTH)
+            path.AddLineToPoint(lb[0], lb[1] - self.PEN_WIDTH)
+            path.CloseSubpath()
+            gc.DrawPath(path)
 
-                gc.SetPen(wx.NullPen)
-                gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
-                gc.DrawRectangle(lt[0], lt[1], self.CORNER_SIZE, self.CORNER_SIZE)
-                gc.DrawRectangle(rt[0] - self.CORNER_SIZE, rt[1], self.CORNER_SIZE, self.CORNER_SIZE)
-                gc.DrawRectangle(rb[0] - self.CORNER_SIZE, rb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
-                gc.DrawRectangle(lb[0], lb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
-            gc.ResetClip()
+            gc.SetPen(wx.NullPen)
+            gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
+            gc.DrawRectangle(lt[0], lt[1], self.CORNER_SIZE, self.CORNER_SIZE)
+            gc.DrawRectangle(rt[0] - self.CORNER_SIZE, rt[1], self.CORNER_SIZE, self.CORNER_SIZE)
+            gc.DrawRectangle(rb[0] - self.CORNER_SIZE, rb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
+            gc.DrawRectangle(lb[0], lb[1] - self.CORNER_SIZE, self.CORNER_SIZE, self.CORNER_SIZE)
+        gc.ResetClip()
 
     def on_mouse_down(self, event):
         if self.image is None:

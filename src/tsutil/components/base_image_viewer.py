@@ -51,24 +51,21 @@ class BaseImageViewer(ImageViewer):
         zoom = min(ratio_w, ratio_h)
         self.set_image_zoom_position(x, y, zoom)
 
-    def on_paint(self, event):
-        super().on_paint(event)
+    def on_paint(self, event, gc: wx.GraphicsContext):
+        super().on_paint(event, gc)
         if self.image is None:
             return
-        dc = wx.AutoBufferedPaintDC(self)
-        gc = wx.GraphicsContext.Create(dc)
-        if gc:
-            gc.Clip(wx.Region(self.regions['preview']))
-            if self.field_visible:
-                gc.SetPen(wx.Pen(wx.Colour(128, 255, 0, 255)))
-                gc.SetBrush(wx.Brush(wx.Colour(128, 255, 0, 64)))
-                for i, field in enumerate(self.fields):
-                    self.__paint_rect(gc, field)
-            if self.dragging_rect is not None:
-                gc.SetPen(wx.Pen(wx.Colour(255, 0, 0, 255)))
-                gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 64)))
-                self.__paint_rect(gc, self.dragging_rect)
-            gc.ResetClip()
+        gc.Clip(wx.Region(self.regions['preview']))
+        if self.field_visible:
+            gc.SetPen(wx.Pen(wx.Colour(128, 255, 0, 255)))
+            gc.SetBrush(wx.Brush(wx.Colour(128, 255, 0, 64)))
+            for i, field in enumerate(self.fields):
+                self.__paint_rect(gc, field)
+        if self.dragging_rect is not None:
+            gc.SetPen(wx.Pen(wx.Colour(255, 0, 0, 255)))
+            gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 64)))
+            self.__paint_rect(gc, self.dragging_rect)
+        gc.ResetClip()
 
     def __paint_rect(self, gc, rect: Rect):
         x0, y0, x1, y1 = self.get_view_rect(*rect.to_tuple())
