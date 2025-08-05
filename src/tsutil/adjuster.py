@@ -222,7 +222,7 @@ class MainFrame(ToolFrame):
         sizer.Add(wx.StaticText(panel, label='ステッチング画像の任意の場所をクリックすると、拡大画像が下に表示されます。'), flag=wx.ALIGN_CENTER)
         self.input_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
         self.input_image_thumbnail.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
-        sizer.Add(self.input_image_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(self.input_image_thumbnail, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 2
 
         # setting panel
@@ -239,7 +239,7 @@ class MainFrame(ToolFrame):
 
         # output image thumbnail
         self.output_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
-        sizer.Add(self.output_image_thumbnail, flag=wx.ALIGN_CENTER)
+        sizer.Add(self.output_image_thumbnail, flag=wx.EXPAND)
         row += 1
 
         # output file panel

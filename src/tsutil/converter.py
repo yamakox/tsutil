@@ -100,7 +100,7 @@ class MainFrame(ToolFrame):
 
         # input image thumbnail
         self.input_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
-        sizer.Add(self.input_image_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(self.input_image_thumbnail, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # setting panel
