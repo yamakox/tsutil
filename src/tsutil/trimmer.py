@@ -45,9 +45,9 @@ class MainFrame(ToolFrame):
         # input video thumbnail 
         sizer.Add(wx.StaticText(panel, label='赤いバーをドラッグして、動画の開始位置と終了位置を指定してください。'), flag=wx.ALIGN_CENTER)
         self.input_video_thumbnail = VideoThumbnail(panel, use_range_bar=True)
-        sizer.Add(self.input_video_thumbnail, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         self.preview_video_thumbnail = VideoThumbnail(panel)
-        sizer.Add(self.preview_video_thumbnail, flag=wx.ALIGN_CENTER)
+        sizer.Add(self.preview_video_thumbnail, flag=wx.EXPAND)
 
         # trimming button
         trimming_button = wx.Button(panel, label='トリミングした動画ファイルを作成する...')
@@ -56,7 +56,7 @@ class MainFrame(ToolFrame):
 
         # output video thumbnail
         self.output_video_thumbnail = VideoThumbnail(panel)
-        sizer.Add(self.output_video_thumbnail, flag=wx.ALIGN_CENTER)
+        sizer.Add(self.output_video_thumbnail, flag=wx.EXPAND)
         sizer.Add(wx.StaticText(panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。こちらで目視確認してください。'), flag=wx.ALIGN_CENTER)
 
         # output file panel

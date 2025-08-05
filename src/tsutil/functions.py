@@ -147,3 +147,6 @@ def sin_space(start, stop, n):
     s = np.sin(np.linspace(-np.pi/2, np.pi/2, n))
     s = (s - s.min()) / (s.max() - s.min())
     return start + (stop - start) * s
+
+def clip(x, min_value, max_value):
+    return max(min_value, min(x, max_value))

@@ -43,7 +43,8 @@ class MouseClickImageEvent(wx.ThreadEvent):
 class ImageViewer(wx.Panel):
     def __init__(self, parent, min_size=MIN_SIZE, enable_zoom=True, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.SetMinSize(dpi_aware_size(parent, wx.Size(*min_size)))
+        #self.SetMinSize(dpi_aware_size(parent, wx.Size(*min_size)))
+        self.SetSizeHints(dpi_aware_size(parent, wx.Size(*min_size)))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SCROLL_BAR_SIZE = dpi_aware(parent, SCROLL_BAR_SIZE)
         self.GRID_SIZE = dpi_aware(parent, GRID_SIZE)

@@ -26,7 +26,8 @@ def _compute_hist(frame, hist):
 class HistogramView(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.SetMinSize(dpi_aware_size(parent, wx.Size(*MIN_SIZE)))
+        #self.SetMinSize(dpi_aware_size(parent, wx.Size(*MIN_SIZE)))
+        self.SetSizeHints(dpi_aware_size(parent, wx.Size(*MIN_SIZE)))
         self.SetBackgroundColour(wx.Colour(0, 0, 0))
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.hist = np.zeros((256, 3), dtype=np.int64)

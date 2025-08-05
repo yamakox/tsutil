@@ -56,11 +56,12 @@ class MainFrame(ToolFrame):
         # input video thumbnail 
         input_video_panel = wx.Panel(panel)
         input_video_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
+        input_video_sizer.AddGrowableCol(0)
         input_video_sizer.Add(wx.StaticText(input_video_panel, label='赤い▲をドラッグして、画像のフレームを指定できます。'), flag=wx.ALIGN_CENTER)
         self.input_video_thumbnail = VideoThumbnail(input_video_panel, use_x_arrow=True)
-        input_video_sizer.Add(self.input_video_thumbnail, flag=wx.ALIGN_CENTER)
+        input_video_sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND)
         input_video_panel.SetSizerAndFit(input_video_sizer)
-        sizer.Add(input_video_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(input_video_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # preview panel + control panel
@@ -80,10 +81,11 @@ class MainFrame(ToolFrame):
         # output video thumbnail 
         output_video_panel = wx.Panel(panel)
         output_video_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
+        output_video_sizer.AddGrowableCol(0)
         self.output_video_thumbnail = VideoThumbnail(output_video_panel)
-        output_video_sizer.Add(self.output_video_thumbnail, flag=wx.ALIGN_CENTER)
+        output_video_sizer.Add(self.output_video_thumbnail, flag=wx.EXPAND)
         output_video_panel.SetSizerAndFit(output_video_sizer)
-        sizer.Add(output_video_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(output_video_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # output file panel

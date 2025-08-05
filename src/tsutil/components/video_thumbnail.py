@@ -79,11 +79,15 @@ class VideoPositionChangedEvent(wx.ThreadEvent):
 # MARK: subroutines
 
 @njit
-def _copy_frames(buf, frames, indices, thumb_width, fx, fw):
-    x = 0
-    for i in indices:
-        buf[:, x:x + fw, :] = frames[i][:, fx:fx + fw, :]
-        x += thumb_width
+def _update_thumbnail(buf, frames, indices, x):
+    for i, index in enumerate(indices):
+        frame = frames[index]
+        fw = x[i + 1] - x[i]
+        if frame.shape[1] <= fw:
+            buf[:, x[i]:x[i] + frame.shape[1], :] = frame
+        else:
+            dwh = (frame.shape[1] - fw) // 2
+            buf[:, x[i]:x[i + 1], :] = frame[:, dwh:dwh + fw, :]
 
 # MARK: main class
 
@@ -92,18 +96,24 @@ class VideoThumbnail(wx.Panel):
         self.RANGE_BAR_WIDTH = dpi_aware(parent, RANGE_BAR_WIDTH)
         self.PROGRESS_BAR_HEIGHT = dpi_aware(parent, PROGRESS_BAR_HEIGHT)
         self.ARROW_SIZE = dpi_aware(parent, ARROW_SIZE)
-        self.THUMBNAIL_SIZE = (dpi_aware(parent, THUMBNAIL_SIZE[0]), dpi_aware(parent, THUMBNAIL_SIZE[1]))
-        self.FRAME_THUMBNAIL_MIN_WIDTH = dpi_aware(parent, FRAME_THUMBNAIL_MIN_WIDTH)
+        self.thumbnail_size = (dpi_aware(parent, THUMBNAIL_SIZE[0]), dpi_aware(parent, THUMBNAIL_SIZE[1]))
+        self.frame_thumbnail_min_width = dpi_aware(parent, FRAME_THUMBNAIL_MIN_WIDTH)
 
-        self.client_width = self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH * 2
-        self.client_height = self.THUMBNAIL_SIZE[1] + (self.ARROW_SIZE if use_x_arrow else 0)
-        super().__init__(parent, size=wx.Size(self.client_width, self.client_height), *args, **kwargs)
+        self.client_width = self.thumbnail_size[0] + self.RANGE_BAR_WIDTH * 2
+        self.client_height = self.thumbnail_size[1] + (self.ARROW_SIZE if use_x_arrow else 0)
+        super().__init__(parent, *args, **kwargs)
+        self.SetSizeHints(
+            dpi_aware(parent, self.client_width),
+            dpi_aware(parent, self.client_height),
+            -1,
+            dpi_aware(parent, self.client_height),
+        )
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.use_range_bar = use_range_bar
         self.use_x_arrow = use_x_arrow
         self.histogram_view = None
-        self.start_pos = 0
-        self.end_pos = self.THUMBNAIL_SIZE[0]
+        self.start_pos = 0.0
+        self.end_pos = 1.0
         self.frame_pos = None
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
@@ -111,13 +121,14 @@ class VideoThumbnail(wx.Panel):
         self.image_catalog = []
         self.progress_total = 0
         self.progress_current = 0
-        self.buf = np.ones((self.THUMBNAIL_SIZE[1], self.THUMBNAIL_SIZE[0], 3), dtype=np.uint8) * 192
+        self.buf = np.ones((self.thumbnail_size[1], self.thumbnail_size[0], 3), dtype=np.uint8) * 192
         self.bitmap = wx.Bitmap.FromBuffer(self.buf.shape[1], self.buf.shape[0], self.buf.tobytes())
         self.bitmap_arrow_up = resource.get_bitmap_arrow_up()
         self.bitmap_arrow_left = resource.get_bitmap_arrow_left()
         self.bitmap_arrow_right = resource.get_bitmap_arrow_right()
 
         self.Bind(wx.EVT_PAINT, self.__on_paint)
+        self.Bind(wx.EVT_SIZE, self.__on_size)
         self.Bind(wx.EVT_WINDOW_DESTROY, self.__on_destroy)
         if self.use_range_bar or self.use_x_arrow:
             self.Bind(wx.EVT_LEFT_DOWN, self.__on_mouse_down)
@@ -133,8 +144,8 @@ class VideoThumbnail(wx.Panel):
         self.histogram_view = histogram_view
 
     def clear(self):
-        self.start_pos = 0
-        self.end_pos = self.THUMBNAIL_SIZE[0]
+        self.start_pos = 0.0
+        self.end_pos = 1.0
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
         self.buf[:] = 192
@@ -183,8 +194,8 @@ class VideoThumbnail(wx.Panel):
     def get_frame_range(self):
         if self.loading or not self.frames:
             return 0, 0
-        start = len(self.frames) * self.start_pos // self.THUMBNAIL_SIZE[0]
-        end = len(self.frames) * self.end_pos // self.THUMBNAIL_SIZE[0]
+        start = int(len(self.frames) * self.start_pos + .5)
+        end = int(len(self.frames) * self.end_pos + .5)
         logger.debug(f'{start=} {end=} {len(self.frames)=}')
         return start, end
 
@@ -207,31 +218,44 @@ class VideoThumbnail(wx.Panel):
         self.progress_current = progress_count
         self.Refresh()
 
+    def __get_start_pos_x(self):
+        return int(self.start_pos * self.thumbnail_size[0] + .5)
+    
+    def __get_end_pos_x(self):
+        return int(self.end_pos * self.thumbnail_size[0] + .5)
+
     def __update_bitmap(self):
         self.bitmap.CopyFromBuffer(self.buf.tobytes())
         self.Refresh()
 
     def __update_thumbnail(self):
+        self.buf[:] = 192
         if not self.frames:
-            self.buf[:] = 192
             self.__update_bitmap()
             return
         count = len(self.frames)
-        thumb_width = self.THUMBNAIL_SIZE[0] // count
         indices = np.arange(count)
-        if thumb_width < self.FRAME_THUMBNAIL_MIN_WIDTH:
-            thumb_width = self.FRAME_THUMBNAIL_MIN_WIDTH
-            count = self.THUMBNAIL_SIZE[0] // thumb_width
+        thumb_width = self.buf.shape[1] // count
+        if thumb_width < self.frame_thumbnail_min_width:
+            thumb_width = self.frame_thumbnail_min_width
+            count = self.buf.shape[1] // thumb_width
             indices = (np.linspace(0, len(self.frames) - 1, count) + .5).astype(int)
-        dw = thumb_width - self.frames[0].shape[1]
-        if dw > 0:
-            fx, fw = 0, self.frames[0].shape[1]
-            self.buf[:] = 192
-        else:
-            dwh = -dw // 2
-            fx, fw = dwh, thumb_width
-        _copy_frames(self.buf, self.frames, indices, thumb_width, fx, fw)  # numbaで高速化
+        x = (np.linspace(0, self.buf.shape[1], count + 1) + .5).astype(int)
+        _update_thumbnail(self.buf, self.frames, indices, x)  # numbaで高速化
         self.__update_bitmap()
+
+    def __on_size(self, event):
+        size = self.GetSize()
+        self.client_width = size.GetWidth()
+        self.client_height = size.GetHeight()
+        self.thumbnail_size = (
+            (self.client_width - self.RANGE_BAR_WIDTH * 2), 
+            self.client_height - (self.ARROW_SIZE if self.use_x_arrow else 0)
+        )
+        self.buf = np.ones((self.thumbnail_size[1], self.thumbnail_size[0], 3), dtype=np.uint8) * 192
+        self.bitmap = wx.Bitmap.FromBuffer(self.buf.shape[1], self.buf.shape[0], self.buf.tobytes())
+        self.__update_thumbnail()
+        event.Skip()
 
     def __on_paint(self, event):
         dc = wx.AutoBufferedPaintDC(self)
@@ -239,16 +263,16 @@ class VideoThumbnail(wx.Panel):
         gc = wx.GraphicsContext.Create(dc)
         if gc:
             gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
-            gc.DrawBitmap(self.bitmap, self.RANGE_BAR_WIDTH, 0, *self.THUMBNAIL_SIZE)
+            gc.DrawBitmap(self.bitmap, self.RANGE_BAR_WIDTH, 0, *self.thumbnail_size)
             gc.SetInterpolationQuality(wx.INTERPOLATION_DEFAULT)
 
             if self.progress_total > 0:
                 gc.SetBrush(wx.Brush(wx.Colour(64, 64, 64, 255)))
-                gc.DrawRectangle(self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[1] - self.PROGRESS_BAR_HEIGHT, 
-                                 self.THUMBNAIL_SIZE[0], self.PROGRESS_BAR_HEIGHT)
+                gc.DrawRectangle(self.RANGE_BAR_WIDTH, self.thumbnail_size[1] - self.PROGRESS_BAR_HEIGHT, 
+                                 self.thumbnail_size[0], self.PROGRESS_BAR_HEIGHT)
                 gc.SetBrush(wx.Brush(wx.Colour(0, 255, 64, 255)))
-                gc.DrawRectangle(self.RANGE_BAR_WIDTH + 1, self.THUMBNAIL_SIZE[1] - self.PROGRESS_BAR_HEIGHT + 1, 
-                                 min(self.progress_current * self.THUMBNAIL_SIZE[0] // self.progress_total, self.THUMBNAIL_SIZE[0] - 2), self.PROGRESS_BAR_HEIGHT - 2)
+                gc.DrawRectangle(self.RANGE_BAR_WIDTH + 1, self.thumbnail_size[1] - self.PROGRESS_BAR_HEIGHT + 1, 
+                                 min(self.progress_current * self.thumbnail_size[0] // self.progress_total, self.thumbnail_size[0] - 2), self.PROGRESS_BAR_HEIGHT - 2)
 
             # これ以降は動画読込中には表示しないもの(マウス操作の対象物)を描画する
             if self.loading:
@@ -256,54 +280,54 @@ class VideoThumbnail(wx.Panel):
 
             if self.use_range_bar:
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 128)))
-                if self.RANGE_BAR_WIDTH < self.start_pos:
-                    gc.DrawRectangle(self.RANGE_BAR_WIDTH, 0, self.start_pos, self.THUMBNAIL_SIZE[1])
-                if self.end_pos + self.RANGE_BAR_WIDTH < self.THUMBNAIL_SIZE[0]:
-                    gc.DrawRectangle(self.RANGE_BAR_WIDTH + self.end_pos + self.RANGE_BAR_WIDTH, 0, self.THUMBNAIL_SIZE[0] - (self.end_pos + self.RANGE_BAR_WIDTH), self.THUMBNAIL_SIZE[1])
+                if self.RANGE_BAR_WIDTH < self.__get_start_pos_x():
+                    gc.DrawRectangle(self.RANGE_BAR_WIDTH, 0, self.__get_start_pos_x(), self.thumbnail_size[1])
+                if self.__get_end_pos_x() + self.RANGE_BAR_WIDTH < self.thumbnail_size[0]:
+                    gc.DrawRectangle(self.RANGE_BAR_WIDTH + self.__get_end_pos_x() + self.RANGE_BAR_WIDTH, 0, self.thumbnail_size[0] - (self.__get_end_pos_x() + self.RANGE_BAR_WIDTH), self.thumbnail_size[1])
                 
                 gc.SetBrush(wx.Brush(wx.Colour(255, 0, 0, 192)))
-                gc.DrawRectangle(self.start_pos, 0, self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[1])
-                gc.DrawRectangle(self.RANGE_BAR_WIDTH + self.end_pos, 0, self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[1])
+                gc.DrawRectangle(self.__get_start_pos_x(), 0, self.RANGE_BAR_WIDTH, self.thumbnail_size[1])
+                gc.DrawRectangle(self.RANGE_BAR_WIDTH + self.__get_end_pos_x(), 0, self.RANGE_BAR_WIDTH, self.thumbnail_size[1])
 
             if self.use_x_arrow:
                 gc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 10)))
-                gc.DrawRectangle(self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[1], self.THUMBNAIL_SIZE[0], self.ARROW_SIZE)
+                gc.DrawRectangle(self.RANGE_BAR_WIDTH, self.thumbnail_size[1], self.thumbnail_size[0], self.ARROW_SIZE)
                 if len(self.frames) > 0 and self.frame_pos is not None:
-                    x = self.RANGE_BAR_WIDTH + int(self.frame_pos * (self.THUMBNAIL_SIZE[0] - 1) / (len(self.frames) - 1) + .5) - self.ARROW_SIZE // 2
+                    x = self.RANGE_BAR_WIDTH + int(self.frame_pos * (self.thumbnail_size[0] - 1) / (len(self.frames) - 1) + .5) - self.ARROW_SIZE // 2
                 else:
-                    x = self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0] // 2 - self.ARROW_SIZE // 2
-                gc.DrawBitmap(self.bitmap_arrow_up, x, self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
-                gc.DrawBitmap(self.bitmap_arrow_left, self.RANGE_BAR_WIDTH - self.ARROW_SIZE, self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
-                gc.DrawBitmap(self.bitmap_arrow_right, self.RANGE_BAR_WIDTH + self.THUMBNAIL_SIZE[0], self.THUMBNAIL_SIZE[1], self.ARROW_SIZE, self.ARROW_SIZE)
+                    x = self.RANGE_BAR_WIDTH + self.thumbnail_size[0] // 2 - self.ARROW_SIZE // 2
+                gc.DrawBitmap(self.bitmap_arrow_up, x, self.thumbnail_size[1], self.ARROW_SIZE, self.ARROW_SIZE)
+                gc.DrawBitmap(self.bitmap_arrow_left, self.RANGE_BAR_WIDTH - self.ARROW_SIZE, self.thumbnail_size[1], self.ARROW_SIZE, self.ARROW_SIZE)
+                gc.DrawBitmap(self.bitmap_arrow_right, self.RANGE_BAR_WIDTH + self.thumbnail_size[0], self.thumbnail_size[1], self.ARROW_SIZE, self.ARROW_SIZE)
 
     def __on_mouse_down(self, event):
         if self.loading:
             return
         x = event.GetX()
         y = event.GetY()
-        if self.use_range_bar and y < self.THUMBNAIL_SIZE[1]:
-            if x < self.start_pos + self.RANGE_BAR_WIDTH:
+        if self.use_range_bar and y < self.thumbnail_size[1]:
+            if x < self.__get_start_pos_x() + self.RANGE_BAR_WIDTH:
                 capture_mouse(self)
                 self.dragging = DRAGGING_LEFT
-                self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
-            elif self.end_pos + self.RANGE_BAR_WIDTH < x:
+                self.dragging_dx = x - (self.__get_start_pos_x() + self.RANGE_BAR_WIDTH)
+            elif self.__get_end_pos_x() + self.RANGE_BAR_WIDTH < x < self.thumbnail_size[0] + self.RANGE_BAR_WIDTH * 2:
                 capture_mouse(self)
                 self.dragging = DRAGGING_RIGHT
-                self.dragging_dx = x - (self.end_pos + self.RANGE_BAR_WIDTH)
+                self.dragging_dx = x - (self.__get_end_pos_x() + self.RANGE_BAR_WIDTH)
             else:
                 capture_mouse(self)
                 self.dragging = DRAGGING_RANGE
-                self.dragging_dx = x - (self.start_pos + self.RANGE_BAR_WIDTH)
-        elif self.use_x_arrow and y >= self.THUMBNAIL_SIZE[1] and len(self.frames) > 0:
+                self.dragging_dx = x - (self.__get_start_pos_x() + self.RANGE_BAR_WIDTH)
+        elif self.use_x_arrow and y >= self.thumbnail_size[1] and len(self.frames) > 0:
             if x < self.RANGE_BAR_WIDTH:
                 capture_mouse(self)
                 self.dragging = DRAGGING_LEFT_ARROW
-            elif x < self.THUMBNAIL_SIZE[0] + self.RANGE_BAR_WIDTH:
+            elif x < self.thumbnail_size[0] + self.RANGE_BAR_WIDTH:
                 capture_mouse(self)
                 self.dragging = DRAGGING_X_ARROW
-                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
+                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.thumbnail_size[0] - 1) + .5), len(self.frames) - 1))
                 self.__update_bitmap()
-            else:
+            elif x < self.thumbnail_size[0] + self.RANGE_BAR_WIDTH * 2:
                 capture_mouse(self)
                 self.dragging = DRAGGING_RIGHT_ARROW
         event.Skip()
@@ -334,19 +358,20 @@ class VideoThumbnail(wx.Panel):
             return
         x = min(max(0, event.GetX()), self.client_width - 1)
         if self.dragging == DRAGGING_LEFT:
-            self.start_pos = max(0, min(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.end_pos))
+            self.start_pos = max(0, min(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.__get_end_pos_x())) / self.thumbnail_size[0]
             self.__update_bitmap()
         elif self.dragging == DRAGGING_RIGHT:
-            self.end_pos = min(self.THUMBNAIL_SIZE[0], max(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.start_pos))
+            self.end_pos = min(self.thumbnail_size[0], max(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.__get_start_pos_x())) / self.thumbnail_size[0]
             self.__update_bitmap()
         elif self.dragging == DRAGGING_RANGE:
-            w = self.end_pos - self.start_pos
-            self.start_pos = max(0, min(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.THUMBNAIL_SIZE[0] - w))
-            self.end_pos = self.start_pos + w
+            _w = self.end_pos - self.start_pos
+            w = _w * self.thumbnail_size[0]
+            self.start_pos = max(0, min(x - self.dragging_dx - self.RANGE_BAR_WIDTH, self.thumbnail_size[0] - w)) / self.thumbnail_size[0]
+            self.end_pos = self.start_pos + _w
             self.__update_bitmap()
         elif self.dragging == DRAGGING_X_ARROW:
             if len(self.frames) > 0:
-                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.THUMBNAIL_SIZE[0] - 1) + .5), len(self.frames) - 1))
+                self.frame_pos = max(0, min(int((len(self.frames) - 1) * (x - self.RANGE_BAR_WIDTH) / (self.thumbnail_size[0] - 1) + .5), len(self.frames) - 1))
             self.__update_bitmap()
         event.Skip()
 
@@ -380,7 +405,7 @@ class VideoThumbnail(wx.Panel):
             probe = Probe(path)
             self.progress_total = probe.n_frames
             self.progress_current = 0
-            self.__update_thumbnail()
+            wx.QueueEvent(self, VideoLoadingEvent())
             if output_path:
                 output_fd = open(output_path, 'w')
                 output_parent_path = output_path.parent
@@ -421,7 +446,7 @@ class VideoThumbnail(wx.Panel):
                                 done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)
                                 future_list = list(not_done)
                             output_fd.write(f'{str(image_filename)}\n')
-                        frame = cv2.resize(frame, ((w * self.THUMBNAIL_SIZE[1]) // h, self.THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT)
+                        frame = cv2.resize(frame, ((w * self.thumbnail_size[1]) // h, self.thumbnail_size[1]), interpolation=cv2.INTER_LINEAR_EXACT)
                         if frame.dtype == np.uint16:
                             frame = (frame // 256).astype(np.uint8)
                         self.frames.append(frame)
@@ -462,7 +487,7 @@ class VideoThumbnail(wx.Panel):
                 self.image_catalog = [parent_path / line.rstrip() for line in reader]
             self.progress_total = len(self.image_catalog)
             self.progress_current = 0
-            self.__update_thumbnail()
+            wx.QueueEvent(self, VideoLoadingEvent())
             if output_path:
                 output = SimpleNamespace(**dict(
                     fd = open(output_path, 'w'), 
@@ -497,7 +522,7 @@ class VideoThumbnail(wx.Panel):
                     cv2.imwrite(output.parent_path / image_filename, frame)
                     output.indexed_filenames[index] = str(image_filename)
                 h, w, _ = frame.shape
-                frame = cv2.cvtColor(cv2.resize(frame, ((w * self.THUMBNAIL_SIZE[1]) // h, self.THUMBNAIL_SIZE[1]), interpolation=cv2.INTER_LINEAR_EXACT), cv2.COLOR_BGR2RGB)
+                frame = cv2.cvtColor(cv2.resize(frame, ((w * self.thumbnail_size[1]) // h, self.thumbnail_size[1]), interpolation=cv2.INTER_LINEAR_EXACT), cv2.COLOR_BGR2RGB)
                 if frame.dtype == np.uint16:
                     frame = (frame / 256).astype(np.uint8)
                 indexed_frame[index] = frame
