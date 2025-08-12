@@ -503,7 +503,10 @@ class VideoThumbnail(wx.Panel):
                 base_frame = cv2.cvtColor(cv2.imread(str(self.image_catalog[correction_model.base_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
             future_list = []
             indexed_frame = {}
-            def _load_and_save_frame(indexed_frame, index, image_path, output, correction_model, base_frame):
+            def _load_and_save_frame(lock, indexed_frame, index, image_path, output, correction_model, base_frame):
+                if not image_path.exists():
+                    logger.error(f'File not found: {image_path}')
+                    return
                 frame = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
                 if output:
                     image_filename = output.dir_name / image_path.name
@@ -525,10 +528,12 @@ class VideoThumbnail(wx.Panel):
                 frame = cv2.cvtColor(cv2.resize(frame, ((w * self.thumbnail_size[1]) // h, self.thumbnail_size[1]), interpolation=cv2.INTER_LINEAR_EXACT), cv2.COLOR_BGR2RGB)
                 if frame.dtype == np.uint16:
                     frame = (frame / 256).astype(np.uint8)
-                indexed_frame[index] = frame
-                if self.histogram_view:
-                    self.histogram_view.add_histogram(frame)
+                with lock:
+                    indexed_frame[index] = frame
+                    if self.histogram_view:
+                        self.histogram_view.add_histogram(frame)
             with futures.ThreadPoolExecutor(max_workers=MAX_WORKERS2) as executor:
+                lock = threading.Lock()
                 prev_time = time.time()
                 if self.histogram_view:
                     self.histogram_view.begin_histogram()
@@ -536,7 +541,7 @@ class VideoThumbnail(wx.Panel):
                     if not self.loading:
                         break
                     self.progress_current = i + 1
-                    future = executor.submit(_load_and_save_frame, indexed_frame, i, image_path, output, correction_model, base_frame)
+                    future = executor.submit(_load_and_save_frame, lock, indexed_frame, i, image_path, output, correction_model, base_frame)
                     future_list.append(future)
                     if len(future_list) >= MAX_WORKERS2:
                         done, not_done = futures.wait(future_list, return_when=futures.FIRST_COMPLETED)

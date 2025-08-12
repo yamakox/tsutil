@@ -1,15 +1,11 @@
 import wx
 import wx.adv
-from pathlib import Path
-from subprocess import Popen, PIPE
-from pydantic import BaseModel
 import numpy as np
 import cv2
 import time
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
-from .components.image_viewer import ImageViewer
 from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED, EVT_FIELD_DELETED
 from .components.deshaking_image_viewer import DeshakingImageViewer, EVT_PERSPECTIVE_POINTS_CHANGED
 from .components.clip_image_viewer import ClipImageViewer, EVT_CLIP_RECT_CHANGED
@@ -248,7 +244,11 @@ class MainFrame(ToolFrame):
         if image_catalog is None or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
             self.base_image_viewer.clear()
             return
-        self.base_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.base_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        frame = cv2.imread(str(image_catalog[self.model.base_frame_pos]), cv2.IMREAD_UNCHANGED)
+        if frame is None:
+            self.base_image_viewer.clear()
+            return
+        self.base_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.deshaking_correction.set_base_image(self.base_frame)
         frame = (self.base_frame // 256).astype(np.uint8) if self.base_frame.dtype == np.uint16 else self.base_frame
         self.base_image_viewer.set_image(frame)
@@ -261,7 +261,12 @@ class MainFrame(ToolFrame):
             return
         
         # deshaking image
-        self.sample_frame = cv2.cvtColor(cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        frame = cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED)
+        if frame is None:
+            self.deshaking_image_viewer.clear()
+            self.clip_image_viewer.clear()
+            return
+        self.sample_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         if self.model.perspective_points.is_none():
             self.model.perspective_points.init(self.sample_frame)
         self.deshaking_correction.set_sample_image(self.sample_frame, self.model.sample_frame_pos)
