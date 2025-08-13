@@ -121,7 +121,7 @@ class MainFrame(ToolFrame):
         output_file_sizer.Add(wx.StaticText(output_file_panel, label='動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
         self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
-        folder_button = wx.Button(output_file_panel, label='フォルダを開く')
+        folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
         output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
         output_file_panel.SetSizerAndFit(output_file_sizer)

@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from .common import *
 #from PIL import Image
-from typing import TextIO
+from typing import TextIO, Sequence
 import sys
 
 # MARK: deshaking correction
@@ -150,3 +150,14 @@ def sin_space(start, stop, n):
 
 def clip(x, min_value, max_value):
     return max(min_value, min(x, max_value))
+
+def get_common_prefix(filenames: Sequence[str]) -> str:
+    if not filenames:
+        return ''
+    prefix = []
+    for chars in zip(*filenames):
+        if len(set(chars)) == 1:
+            prefix.append(chars[0])
+        else:
+            break
+    return ''.join(prefix)

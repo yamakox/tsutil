@@ -144,7 +144,7 @@ class MainFrame(ToolFrame):
         output_file_sizer.Add(wx.StaticText(output_file_panel, label='出力した連続画像のカタログファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
         self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
-        folder_button = wx.Button(output_file_panel, label='フォルダを開く')
+        folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
         output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
         output_file_panel.SetSizerAndFit(output_file_sizer)
@@ -465,7 +465,7 @@ class MainFrame(ToolFrame):
 
         with wx.FileDialog(
             self, 
-            '保存先の連続画像のカタログファイル名を入力してください。(連続画像のディレクトリ名にもなります)', 
+            '保存先の連続画像のカタログファイル名を入力してください。(連続画像のフォルダー名にもなります)', 
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
             wildcard=IMAGE_CATALOG_FILE_WILDCARD,
