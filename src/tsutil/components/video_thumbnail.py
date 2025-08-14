@@ -103,10 +103,10 @@ class VideoThumbnail(wx.Panel):
         self.client_height = self.thumbnail_size[1] + (self.ARROW_SIZE if use_x_arrow else 0)
         super().__init__(parent, *args, **kwargs)
         self.SetSizeHints(
-            dpi_aware(parent, self.client_width),
-            dpi_aware(parent, self.client_height),
+            self.client_width,
+            self.client_height,
             -1,
-            dpi_aware(parent, self.client_height),
+            self.client_height,
         )
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.use_range_bar = use_range_bar
