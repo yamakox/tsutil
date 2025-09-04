@@ -3,7 +3,7 @@ name = "tsutil"
 dynamic = ["version"]
 description = "TrainScanner Utility"
 authors = [
-    {name = "yamakox",email = "yamakox@gmail.com"}
+    {name = "yamakox"}
 ]
 license = {text = "BSD-3-Clause"}
 classifiers = [
