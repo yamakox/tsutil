@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_RANGE_CHANGED
-from ffio import Probe
+from fffio import Probe
 
 # MARK: constants
 

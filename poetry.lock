@@ -106,25 +106,20 @@ docs = ["ipython", "matplotlib", "numpydoc", "sphinx"]
 tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
-name = "ffio"
-version = "0.5.8"
-description = "The video frame reader/writer from/to a video file using FFmpeg"
+name = "fffio"
+version = "0.6.0"
+description = "Python package of FFmpeg Frame Input/Output"
 optional = false
-python-versions = ">=3.12"
+python-versions = ">=3.11"
 groups = ["main"]
-files = []
-develop = false
+files = [
+    {file = "fffio-0.6.0-py3-none-any.whl", hash = "sha256:26ef1e6318ff6aad8435bb747164012abc452fc573a11c492b9a9b14eeb51f2c"},
+    {file = "fffio-0.6.0.tar.gz", hash = "sha256:7078609ad9cd40925429ada7f80047e2647c33eb76bf974c7daa3af9bfb16c35"},
+]
 
 [package.dependencies]
 ffmpeg-python = ">=0.2.0"
 numpy = ">=2.0.0"
-pillow = ">=11.0.0"
-
-[package.source]
-type = "git"
-url = "https://github.com/yamakox/ffio.git"
-reference = "HEAD"
-resolved_reference = "df1e9795ce64885abc2d03e10d4e99637bab0005"
 
 [[package]]
 name = "ffmpeg-python"
@@ -890,4 +885,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "de7127bb9bbfdddb1daafb972d3d8c8b747164e07a7e3e456b99d1c6106f5973"
+content-hash = "9148272b7f09de48c6b7712f31a1b9777bcf0f51dc31013fa04801cc514cf4d3"

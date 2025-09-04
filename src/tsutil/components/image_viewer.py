@@ -1,8 +1,6 @@
 import wx
 import numpy as np
 import cv2
-from pathlib import Path
-from ffio import FrameReader, Probe
 from .resource import resource
 from ..common import *
 

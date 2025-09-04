@@ -8,7 +8,7 @@ import os
 from types import SimpleNamespace
 import concurrent.futures as futures
 from numba import njit
-from ffio import FrameReader, Probe
+from fffio import FrameReader, Probe
 from .resource import resource
 from ..common import *
 from .histogram_view import HistogramView

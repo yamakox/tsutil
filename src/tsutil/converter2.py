@@ -5,7 +5,7 @@ import cv2
 from PIL import Image
 import time
 import threading
-from ffio import FrameWriter
+from fffio import FrameWriter
 from .common import *
 from .tool_frame import ToolFrame
 from .components.range_image_viewer import RangeImageViewer, EVT_FIELD_SELECTED

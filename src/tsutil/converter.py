@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import cv2
 from PIL import Image
 import threading
-from ffio import FrameWriter
+from fffio import FrameWriter
 from .common import *
 from .tool_frame import ToolFrame
 from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE
