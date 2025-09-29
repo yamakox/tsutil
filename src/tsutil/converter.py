@@ -147,7 +147,21 @@ class MainFrame(ToolFrame):
         left_sizer.AddGrowableCol(0)
 
         left_sizer.Add(wx.StaticText(left_panel, label='動画のサイズ:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        movie_size_panel = wx.Panel(left_panel)
+        movie_size_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(8, 0))
+        movie_size_sizer.AddGrowableCol(0)
+        movie_size_sizer.AddGrowableCol(2)
+        self.movie_width = wx.SpinCtrl(movie_size_panel, value=str(MOVIE_SIZES[0].width), min=100, max=4096, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.movie_height = wx.SpinCtrl(movie_size_panel, value=str(MOVIE_SIZES[0].height), min=100, max=4096, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        movie_size_sizer.Add(self.movie_width, flag=wx.EXPAND)
+        movie_size_sizer.Add(wx.StaticText(movie_size_panel, label='x', style=wx.ALIGN_CENTER|wx.ST_NO_AUTORESIZE))
+        movie_size_sizer.Add(self.movie_height, flag=wx.EXPAND)
+        movie_size_panel.SetSizerAndFit(movie_size_sizer)
+        left_sizer.Add(movie_size_panel, flag=wx.EXPAND)
+
+        left_sizer.AddSpacer(0)
         self.movie_size_selector = wx.Choice(left_panel)
+        self.movie_size_selector.Bind(wx.EVT_CHOICE, self.__on_movie_size_selector_choiced)
         self.movie_size_selector.Append([i.description for i in MOVIE_SIZES])
         self.movie_size_selector.SetSelection(0)
         left_sizer.Add(self.movie_size_selector, flag=wx.EXPAND)
@@ -209,7 +223,10 @@ class MainFrame(ToolFrame):
     def __make_movie(self, output_path):
         try:
             self.__ensure_stop_saving()
-            movie_size = MOVIE_SIZES[self.movie_size_selector.GetSelection()]
+            movie_width = get_spin_ctrl_value(self.movie_width) & ~1
+            movie_height = get_spin_ctrl_value(self.movie_height) & ~1
+            self.movie_width.SetValue(movie_width)
+            self.movie_height.SetValue(movie_height)
             thumb_height = THUMB_HEIGHTS[self.thumb_height_selector.GetSelection()]
             seconds = get_spin_ctrl_value(self.second)
             frame_rate = FRAME_RATES[self.frame_rate_selector.GetSelection()]
@@ -226,38 +243,55 @@ class MainFrame(ToolFrame):
         
         self.saving = threading.Thread(
             target=self.__movie_save_worker, 
-            args=(output_path, movie_size, thumb_height, seconds, frame_rate, direction, loop), 
+            args=(output_path, movie_width, movie_height, thumb_height, seconds, frame_rate, direction, loop), 
             daemon=True, 
         )
         self.saving.start()
 
-    def __movie_save_worker(self, output_path, movie_size, thumb_height, seconds, frame_rate, direction, loop):
+    def __movie_save_worker(self, output_path, movie_width, movie_height, thumb_height, seconds, frame_rate, direction, loop):
         thumb_img = None
         thumb_buf = None
+        thumb_w = 0
+        thumb_ox = 0
         thumb_size = [0, 0]
         if thumb_height.value > 0:
-            thumb_size = [movie_size.width, int(thumb_height.value * self.raw_image.shape[0] * movie_size.width / self.raw_image.shape[1] + .5)]
+            thumb_size = [movie_width, int(thumb_height.value * self.raw_image.shape[0] * movie_width / self.raw_image.shape[1] + .5)]
             thumb_img = cv2.resize(self.raw_image, thumb_size, interpolation=cv2.INTER_AREA)
-        h = movie_size.height - thumb_size[1]
+        h = movie_height - thumb_size[1]
+        if h < int(movie_height / (1 + thumb_height.value)):  # NOTE: ここでthumb_height.value > 0が担保される(次行の分母は0にならない)
+            _w = int(int(movie_height / (1 + thumb_height.value)) * self.raw_image.shape[1] / self.raw_image.shape[0])
+            wx.MessageBox(f'入力パラメータエラー: 動画の幅を {_w} 以下に設定してください。')
+            self.movie_width.SetValue(_w)
+            self.movie_width.SetFocus()
+            return
         w = int((self.raw_image.shape[1] * h) / self.raw_image.shape[0] + .5)
+        if w < movie_width:
+            _w = int(movie_height * self.raw_image.shape[1] / self.raw_image.shape[0] * (1 + thumb_height.value))
+            if _w < 100:
+                wx.MessageBox(f'入力パラメータエラー: サムネイルの高さを小さくするかサムネイルなしにしてください。')
+            else:
+                wx.MessageBox(f'入力パラメータエラー: 動画の幅を {_w} 以下に設定してください。')
+                self.movie_width.SetValue(_w)
+                self.movie_width.SetFocus()
+            return
         if thumb_img is not None:
-            thumb_w = int((movie_size.width * movie_size.width) / w + .5)
+            thumb_w = int((movie_width * movie_width) / w + .5)
             thumb_ox = 0
         img = cv2.resize(self.raw_image, (w, h), interpolation=cv2.INTER_AREA)
         if loop in ('fwd', 'fwd2'):
             if direction > 0:
-                img = np.hstack((img, img[:, :movie_size.width, :]))
+                img = np.hstack((img, img[:, :movie_width, :]))
                 if thumb_img is not None:
                     thumb_img = np.hstack((thumb_img, thumb_img[:, :thumb_w, :]))
             else:
-                img = np.hstack((img[:, -movie_size.width:, :], img))
+                img = np.hstack((img[:, -movie_width:, :], img))
                 if thumb_img is not None:
                     thumb_img = np.hstack((thumb_img[:, -thumb_w:, :], thumb_img))
                     thumb_ox = thumb_w
         if thumb_img is not None:
             thumb_buf = np.array(thumb_img)
         frame_count = frame_rate.value * seconds
-        x_max = img.shape[1] - movie_size.width
+        x_max = img.shape[1] - movie_width
         if loop == 'rev':
             x_positions = np.hstack((
                 sin_space(0, x_max, 1 + frame_count // 2).astype(int)[:-1],
@@ -273,32 +307,37 @@ class MainFrame(ToolFrame):
             x_positions = x_max - x_positions
         if frame_rate.gif:
             images = []
-            for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions):
+            for buf in self.__enum_frames(movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions):
                 images.append(Image.fromarray(buf))
             images[0].save(str(output_path), save_all=True, append_images=images[1:], duration=1000 // frame_rate.value, loop=None if loop is None else 0)
         else:
-            with FrameWriter(str(output_path), size=(movie_size.width, movie_size.height), fps=frame_rate.value, qmax=16) as writer:
-                for buf in self.__enum_frames(movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
+            with FrameWriter(str(output_path), size=(movie_width, movie_height), fps=frame_rate.value, qmax=16) as writer:
+                for buf in self.__enum_frames(movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
                     writer.write(buf)
         wx.QueueEvent(self, MovieSavingEvent(0, 0))
 
-    def __enum_frames(self, movie_size, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, frame_buf=None):
+    def __enum_frames(self, movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, frame_buf=None):
         for i, x in enumerate(x_positions):
             if self.saving is None:
                 return
             wx.QueueEvent(self, MovieSavingEvent(i + 1, len(x_positions)))
-            buf = frame_buf if frame_buf is not None else np.empty((movie_size.height, movie_size.width, 3), dtype=np.uint8)
-            buf[(movie_size.height - h):, :, :] = img[:, x:(x + movie_size.width), :]
+            buf = frame_buf if frame_buf is not None else np.empty((movie_height, movie_width, 3), dtype=np.uint8)
+            buf[(movie_height - h):, :, :] = img[:, x:(x + movie_width), :]
             if thumb_img is not None:
                 _x = int(thumb_img.shape[1] * x / img.shape[1] + .5)
                 thumb_buf[...] = thumb_img[...]
                 thumb_buf[:, _x:_x+thumb_w, :] = ((thumb_buf[:, _x:_x+thumb_w, :] + THUMBNAIL_HIGHLIGHT_COLOR) // 2).astype(np.uint8)
                 buf[:thumb_size[1], :, :] = thumb_buf[:, thumb_ox:thumb_ox+thumb_size[0], :]
                 if direction > 0 and _x + thumb_w > thumb_size[0]:
-                    buf[:thumb_size[1], :thumb_w, :] = thumb_buf[:, -thumb_w:, :]
+                    buf[:thumb_size[1], :(_x + thumb_w - thumb_size[0]), :] = thumb_buf[:, thumb_size[0]:(_x + thumb_w), :]
                 elif direction < 0 and _x < thumb_ox:
-                    buf[:thumb_size[1], -thumb_w:, :] = thumb_buf[:, :thumb_w, :]
+                    buf[:thumb_size[1], (_x - thumb_ox):, :] = thumb_buf[:, _x:thumb_ox, :]
             yield buf
+
+    def __on_movie_size_selector_choiced(self, event):
+        movie_size = MOVIE_SIZES[self.movie_size_selector.GetSelection()]
+        self.movie_width.SetValue(movie_size.width)
+        self.movie_height.SetValue(movie_size.height)
 
     def __on_movie_saving(self, event):
         self.input_image_thumbnail.set_progress(event.total, event.current)
