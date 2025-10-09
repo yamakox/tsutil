@@ -306,10 +306,19 @@ class MainFrame(ToolFrame):
         if direction < 0:
             x_positions = x_max - x_positions
         if frame_rate.gif:
+            palette_image = Image.fromarray(img).quantize(colors=256, method=Image.Quantize.MEDIANCUT)
             images = []
             for buf in self.__enum_frames(movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions):
-                images.append(Image.fromarray(buf))
-            images[0].save(str(output_path), save_all=True, append_images=images[1:], duration=1000 // frame_rate.value, loop=None if loop is None else 0)
+                images.append(Image.fromarray(buf).quantize(palette=palette_image, dither=Image.Dither.FLOYDSTEINBERG))
+            images[0].save(
+                str(output_path), 
+                save_all=True, 
+                append_images=images[1:], 
+                duration=1000 // frame_rate.value, 
+                optimize=False, 
+                disposal=2, 
+                loop=None if loop is None else 0
+            )
         else:
             with FrameWriter(str(output_path), size=(movie_width, movie_height), fps=frame_rate.value, qmax=16) as writer:
                 for buf in self.__enum_frames(movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
