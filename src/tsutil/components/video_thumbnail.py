@@ -176,8 +176,8 @@ class VideoThumbnail(wx.Panel):
         self.loading.start()
 
     def ensure_stop_loading(self):
-        if self.loading:
-            th = self.loading
+        th = self.loading
+        if th:
             self.loading = None
             th.join()
         self.SetCursor(wx.Cursor(wx.CURSOR_DEFAULT))
@@ -477,6 +477,8 @@ class VideoThumbnail(wx.Panel):
             if output_fd:
                 output_fd.close()
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
+        finally:
+            self.loading = None
 
     def __image_catalog_load_worker(self, path, correction_model, output_path):
         output = None
@@ -577,3 +579,5 @@ class VideoThumbnail(wx.Panel):
                 output.fd.close()
                 output.log_fd.close()
             wx.QueueEvent(self, VideoLoadErrorEvent(str(e)))
+        finally:
+            self.loading = None

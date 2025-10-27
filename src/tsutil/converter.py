@@ -215,14 +215,13 @@ class MainFrame(ToolFrame):
         self.raw_image = None
 
     def __ensure_stop_saving(self):
-        if self.saving:
-            th = self.saving
+        th = self.saving
+        if th:
             self.saving = None
             th.join()
 
     def __make_movie(self, output_path):
         try:
-            self.__ensure_stop_saving()
             movie_width = get_spin_ctrl_value(self.movie_width) & ~1
             movie_height = get_spin_ctrl_value(self.movie_height) & ~1
             self.movie_width.SetValue(movie_width)
@@ -240,7 +239,9 @@ class MainFrame(ToolFrame):
                 loop = 'rev'
         except Exception as excep:
             wx.MessageBox('入力パラメータエラー: ' + str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+            return
         
+        self.__ensure_stop_saving()
         self.saving = threading.Thread(
             target=self.__movie_save_worker, 
             args=(output_path, movie_width, movie_height, thumb_height, seconds, frame_rate, direction, loop), 
@@ -324,6 +325,7 @@ class MainFrame(ToolFrame):
                 for buf in self.__enum_frames(movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, writer.frame):
                     writer.write(buf)
         wx.QueueEvent(self, MovieSavingEvent(0, 0))
+        self.saving = None
 
     def __enum_frames(self, movie_width, movie_height, img, w, h, thumb_img, thumb_w, thumb_ox, thumb_size, thumb_buf, direction, x_positions, frame_buf=None):
         for i, x in enumerate(x_positions):

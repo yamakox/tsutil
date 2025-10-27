@@ -424,12 +424,13 @@ class MainFrame(ToolFrame):
         self.buf[buf_y0:buf_y1, buf_x0:buf_x1, :] = cv2.resize(src[img_y0:img_y1, img_x0:img_x1, :], (_w2, _h2), interpolation=cv2.INTER_AREA)
 
     def __ensure_stop_saving(self):
-        if self.saving:
-            th = self.saving
+        th = self.saving
+        if th:
             self.saving = None
             th.join()
 
     def __make_movie(self, output_path):
+        self.__ensure_stop_saving()
         self.saving = threading.Thread(
             target=self.__movie_save_worker, 
             args=(output_path, ), 
@@ -454,6 +455,7 @@ class MainFrame(ToolFrame):
             except StopIteration:
                 pass
         wx.QueueEvent(self, MovieSavingEvent(0, 0))
+        self.saving = None
 
     def __enum_render_frame(self, seq0, seq1):
         if seq0:
