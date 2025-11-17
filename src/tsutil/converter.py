@@ -112,7 +112,7 @@ class MainFrame(ToolFrame):
         # save button
         save_button = wx.Button(panel, label='ステッチング画像から動画に変換する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        sizer.Add(save_button, flag=wx.ALIGN_CENTER)
+        sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.ALL, border=2)
 
         # output file panel
         output_file_panel = wx.Panel(panel)
@@ -123,7 +123,7 @@ class MainFrame(ToolFrame):
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
         folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
-        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=2)
         output_file_panel.SetSizerAndFit(output_file_sizer)
         sizer.Add(output_file_panel, flag=wx.EXPAND|wx.TOP, border=MARGIN)
         row += 1

@@ -16,6 +16,7 @@ THUMBNAIL_SIZE = (1000, THUMBNAIL_HEIGHT + SCROLL_BAR_SIZE)
 PREVIEW_SIZE = (500, 300)
 POSITION_LIST_SIZE = (300, 250)
 ADJUST_SUFFIX = '_adjust'
+SPLIT_SUFFIX = '_split'
 TOOL_NAME = 'ステッチング画像の縦横比の調整'
 ID_Y_TOP = 30001
 ID_Y_BOTTOM = 30002
@@ -25,6 +26,7 @@ DEFAULT_PREVIEW_MESSAGE = '屋根Y・足元Y・列車の調整位置を選択し
 class Position(BaseModel):
     length: int = 0
     description: str = '車両の位置'
+    coupler: bool = True
 
 class MeasurementData(BaseModel):
     height: int = 0
@@ -35,7 +37,7 @@ def M(height: int, factor: float, positions: list[tuple[int, str]]):
     return MeasurementData(
         height=height, 
         factor=factor, 
-        positions=[Position(length=i[0], description=i[1]) for i in positions], 
+        positions=[Position(length=i[0], description=i[1], coupler=i[2]) for i in positions], 
     )
 
 MEASUREMENT_DATASET = {
@@ -43,141 +45,141 @@ MEASUREMENT_DATASET = {
         height=3650, 
         factor=0.97, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (9200, '1両目のノーズ終端'), 
-            (27350-9200, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (25000, '6両目と7両目の間'), 
-            (25000, '7両目と8両目の間'), 
-            (27350-9200, '8両目のノーズ終端'),
-            (9200, '8両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (9200, '1両目のノーズ終端', False), 
+            (27350-9200, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (25000, '6両目と7両目の間', True), 
+            (25000, '7両目と8両目の間', True), 
+            (27350-9200, '8両目のノーズ終端', False),
+            (9200, '8両目のノーズ先端', False), 
         ]
     ), 
     'ドクターイエロー': M(
         height=3650, 
         factor=0.97, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (9200, '1両目のノーズ終端'), 
-            (27350-9200, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (25000, '6両目と7両目の間'), 
-            (27350-9200, '7両目のノーズ終端'),
-            (9200, '7両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (9200, '1両目のノーズ終端', False), 
+            (27350-9200, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (25000, '6両目と7両目の間', True), 
+            (27350-9200, '7両目のノーズ終端', False),
+            (9200, '7両目のノーズ先端', False), 
         ]
     ), 
     'N700A・N700S': M(
         height=3600, 
         factor=0.97, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (10700, '1両目のノーズ終端'), 
-            (27350-10700, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (25000, '6両目と7両目の間'), 
-            (25000, '7両目と8両目の間'), 
-            (25000, '8両目と9両目の間'), 
-            (25000, '9両目と10両目の間'), 
-            (25000, '10両目と11両目の間'), 
-            (25000, '11両目と12両目の間'), 
-            (25000, '12両目と13両目の間'), 
-            (25000, '13両目と14両目の間'), 
-            (25000, '14両目と15両目の間'), 
-            (25000, '15両目と16両目の間'), 
-            (27350-10700, '16両目のノーズ終端'),
-            (10700, '16両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (10700, '1両目のノーズ終端', False), 
+            (27350-10700, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (25000, '6両目と7両目の間', True), 
+            (25000, '7両目と8両目の間', True), 
+            (25000, '8両目と9両目の間', True), 
+            (25000, '9両目と10両目の間', True), 
+            (25000, '10両目と11両目の間', True), 
+            (25000, '11両目と12両目の間', True), 
+            (25000, '12両目と13両目の間', True), 
+            (25000, '13両目と14両目の間', True), 
+            (25000, '14両目と15両目の間', True), 
+            (25000, '15両目と16両目の間', True), 
+            (27350-10700, '16両目のノーズ終端', False),
+            (10700, '16両目のノーズ先端', False), 
         ]
     ), 
     '500系': M(
         height=3690, 
         factor=0.97, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (15000, '1両目のノーズ終端'), 
-            (27000-15000, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (25000, '6両目と7両目の間'), 
-            (25000, '7両目と8両目の間'), 
-            (27000-15000, '8両目のノーズ終端'),
-            (15000, '8両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (15000, '1両目のノーズ終端', False), 
+            (27000-15000, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (25000, '6両目と7両目の間', True), 
+            (25000, '7両目と8両目の間', True), 
+            (27000-15000, '8両目のノーズ終端', False),
+            (15000, '8両目のノーズ先端', False), 
         ]
     ), 
     '800系': M(
         height=3650, 
         factor=0.97, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (9500, '1両目のノーズ終端'), 
-            (27350-9500, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (27350-9500, '6両目のノーズ終端'),
-            (9500, '6両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (9500, '1両目のノーズ終端', False), 
+            (27350-9500, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (27350-9500, '6両目のノーズ終端', False),
+            (9500, '6両目のノーズ先端', False), 
         ]
     ), 
     'E7/W7系': M(
         height=3650, 
         factor=1.00, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (9100, '1両目のノーズ終端'), 
-            (26000-9100, '1両目と2両目の間'), 
-            (25000, '2両目と3両目の間'), 
-            (25000, '3両目と4両目の間'), 
-            (25000, '4両目と5両目の間'), 
-            (25000, '5両目と6両目の間'), 
-            (25000, '6両目と7両目の間'), 
-            (25000, '7両目と8両目の間'), 
-            (25000, '8両目と9両目の間'), 
-            (25000, '9両目と10両目の間'), 
-            (25000, '10両目と11両目の間'), 
-            (25000, '11両目と12両目の間'), 
-            (26000-9100, '12両目のノーズ終端'),
-            (9100, '12両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (9100, '1両目のノーズ終端', False), 
+            (26000-9100, '1両目と2両目の間', True), 
+            (25000, '2両目と3両目の間', True), 
+            (25000, '3両目と4両目の間', True), 
+            (25000, '4両目と5両目の間', True), 
+            (25000, '5両目と6両目の間', True), 
+            (25000, '6両目と7両目の間', True), 
+            (25000, '7両目と8両目の間', True), 
+            (25000, '8両目と9両目の間', True), 
+            (25000, '9両目と10両目の間', True), 
+            (25000, '10両目と11両目の間', True), 
+            (25000, '11両目と12両目の間', True), 
+            (26000-9100, '12両目のノーズ終端', False),
+            (9100, '12両目のノーズ先端', False), 
         ]
     ), 
     'E3系': M(
         height=4080, 
         factor=1.00, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (6000, '1両目のノーズ終端'), 
-            (23075-6000, '1両目と2両目の間'), 
-            (20500, '2両目と3両目の間'), 
-            (20500, '3両目と4両目の間'), 
-            (20500, '4両目と5両目の間'), 
-            (20500, '5両目と6両目の間'), 
-            (23075-6000, '6両目のノーズ終端'),
-            (6000, '6両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (6000, '1両目のノーズ終端', False), 
+            (23075-6000, '1両目と2両目の間', True), 
+            (20500, '2両目と3両目の間', True), 
+            (20500, '3両目と4両目の間', True), 
+            (20500, '4両目と5両目の間', True), 
+            (20500, '5両目と6両目の間', True), 
+            (23075-6000, '6両目のノーズ終端', False),
+            (6000, '6両目のノーズ先端', False), 
         ]
     ), 
     'East-i E926形': M(
         height=4080, 
         factor=1.00, 
         positions=[
-            (0, '1両目のノーズ先端'), 
-            (6000, '1両目のノーズ終端'), 
-            (22725-6000, '1両目と2両目の間'), 
-            (20500, '2両目と3両目の間'), 
-            (20500, '3両目と4両目の間'), 
-            (20500, '4両目と5両目の間'), 
-            (20500, '5両目と6両目の間'), 
-            (22725-6000, '6両目のノーズ終端'),
-            (6000, '6両目のノーズ先端'), 
+            (0, '1両目のノーズ先端', False), 
+            (6000, '1両目のノーズ終端', False), 
+            (22725-6000, '1両目と2両目の間', True), 
+            (20500, '2両目と3両目の間', True), 
+            (20500, '3両目と4両目の間', True), 
+            (20500, '4両目と5両目の間', True), 
+            (20500, '5両目と6両目の間', True), 
+            (22725-6000, '6両目のノーズ終端', False),
+            (6000, '6両目のノーズ先端', False), 
         ]
     ), 
 }
@@ -232,9 +234,16 @@ class MainFrame(ToolFrame):
         row += 1
 
         # save button
-        save_button = wx.Button(panel, label='調整したステッチング画像を保存する...')
+        save_panel = wx.Panel(panel)
+        save_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
+        save_button = wx.Button(save_panel, label='調整したステッチング画像を保存する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        save_sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.ALL, border=2)
+        save_split_button = wx.Button(save_panel, label='調整した画像を1両ずつ分割保存する...')
+        save_split_button.Bind(wx.EVT_BUTTON, self.__on_save_split_button_clicked)
+        save_sizer.Add(save_split_button, flag=wx.ALIGN_CENTER|wx.ALL, border=2)
+        save_panel.SetSizerAndFit(save_sizer)
+        sizer.Add(save_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
         row += 1
 
         # output image thumbnail
@@ -251,7 +260,7 @@ class MainFrame(ToolFrame):
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
         folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
-        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=2)
         output_file_panel.SetSizerAndFit(output_file_sizer)
         sizer.Add(output_file_panel, flag=wx.EXPAND|wx.TOP, border=MARGIN)
         row += 1
@@ -458,7 +467,8 @@ class MainFrame(ToolFrame):
         buf = np.zeros((dst_height, dst_width, 3), dtype=np.uint8)
         if self.positions[0] < margin or img.shape[1] - self.positions[-1] < margin:
             max_space = min(self.positions[0], img.shape[1] - self.positions[-1])
-            raise Exception('余白を{max_space}以下にしてください。')
+            raise Exception(f'余白を{max_space}以下にしてください。')
+        pos =[0]
         buf[:, :margin, :] = img[:, self.positions[0]-margin:self.positions[0], :]
         x = margin
         for i, dw in enumerate(dst_widths):
@@ -468,12 +478,15 @@ class MainFrame(ToolFrame):
                 (dw, dst_height), 
                 interpolation=cv2.INTER_AREA
             )
+            if data.positions[i + 1].coupler:
+                pos.append(x1)
             x = x1
         buf[:, x:, :] = img[:, self.positions[-1]:self.positions[-1]+margin, :]
+        pos.append(dst_width)
         unsharp_mask_parameter = get_spin_ctrl_value(self.unsharp_mask_parameter)
         if unsharp_mask_parameter > 0.0:
             buf = unsharp_mask(buf, unsharp_mask_parameter)
-        return buf
+        return buf, pos
 
     def __on_input_file_changed(self, event):
         path = get_path(self.input_file_picker.GetPath())
@@ -584,8 +597,43 @@ class MainFrame(ToolFrame):
             output_path = get_path(fileDialog.GetPath())
             self.output_filename_text.SetValue(str(output_path))
             try:
-                buf = self.__adjust_image()
+                buf, _ = self.__adjust_image()
                 cv2.imwrite(str(output_path), cv2.cvtColor(buf, cv2.COLOR_RGB2BGR))
+                self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
+                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
+            except Exception as excep:
+                wx.MessageBox(str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+        event.Skip()
+
+    def __on_save_split_button_clicked(self, event):
+        if self.raw_image is None:
+            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
+            return
+        if  not self.positions or None in self.positions:
+            wx.MessageBox('調整位置の座標が設定されていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            event.Skip()
+            return
+
+        input_path = get_path(self.input_file_picker.GetPath())
+        output_filename = input_path.stem + SPLIT_SUFFIX + input_path.suffix
+
+        with wx.FileDialog(
+            self, 
+            '調整したステッチング画像の保存先ファイル名を入力してください。', 
+            defaultDir=str(input_path.parent),
+            defaultFile=output_filename,
+            wildcard=IMAGE_FILE_WILDCARD,
+            style=wx.FD_SAVE) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            output_path = get_path(fileDialog.GetPath())
+            self.output_filename_text.SetValue(str(output_path.parent / (output_path.stem + '-*' + output_path.suffix)))
+            output_path_pattern = str(output_path.parent / (output_path.stem + '-{0:03d}' + output_path.suffix))
+            try:
+                buf, pos = self.__adjust_image()
+                for i in range(1, len(pos)):
+                    cv2.imwrite(output_path_pattern.format(i), cv2.cvtColor(buf[:, pos[i-1]:pos[i], :], cv2.COLOR_RGB2BGR))
                 self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
                 self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
             except Exception as excep:
