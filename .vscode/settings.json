@@ -1,5 +1,6 @@
 {
   "workbench.colorCustomizations": {
     "editorGhostText.background": "#f8d800"
-  }
+  }, 
+  "cursorpyright.analysis.inlayHints.genericTypes": false
 }

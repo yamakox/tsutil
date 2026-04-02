@@ -259,15 +259,17 @@ class MainFrame(ToolFrame):
         sizer.Add(line, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
         row += 1
         output_panel = wx.Panel(panel)
-        output_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
+        output_sizer = wx.FlexGridSizer(cols=4, gap=wx.Size(MARGIN, 0))
         self.format_png_button = wx.RadioButton(output_panel, label='24bit PNG', style=wx.RB_GROUP)
         self.format_png_button.SetValue(True)
-        output_sizer.Add(self.format_png_button, flag=wx.RIGHT, border=MARGIN)
+        output_sizer.Add(self.format_png_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
         self.format_tiff_button = wx.RadioButton(output_panel, label='48bit TIFF')
-        output_sizer.Add(self.format_tiff_button, flag=wx.RIGHT, border=MARGIN)
+        output_sizer.Add(self.format_tiff_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        self.scale_half_button = wx.CheckBox(output_panel, label='1/2に縮小')
+        output_sizer.Add(self.scale_half_button, flag=wx.ALIGN_CENTER_VERTICAL, border=MARGIN)
         save_button = wx.Button(output_panel, label='連続画像とカタログファイルを作成する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        output_sizer.Add(save_button, flag=wx.ALIGN_CENTER)
+        output_sizer.Add(save_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_CENTER)
         output_panel.SetSizerAndFit(output_sizer)
         sizer.Add(output_panel, flag=wx.ALIGN_CENTER)
         row += 1
@@ -582,7 +584,8 @@ class MainFrame(ToolFrame):
                 self.rotation, 
                 self.__make_filter_complex(),
                 output_path,
-                output_format
+                output_format, 
+                1/2 if self.scale_half_button.GetValue() else None
             )
         event.Skip()
 

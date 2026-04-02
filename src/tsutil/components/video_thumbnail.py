@@ -155,12 +155,12 @@ class VideoThumbnail(wx.Panel):
         self.progress_current = 0
         self.__update_bitmap()
 
-    def load_video(self, path: Path, rotation=0, filter_complex=None, output_path: Path=None, format='PNG'):
+    def load_video(self, path: Path, rotation=0, filter_complex=None, output_path: Path=None, format='PNG', scale=None):
         self.ensure_stop_loading()
         self.SetCursor(wx.Cursor(wx.CURSOR_WAIT))
         self.loading = threading.Thread(
             target=self.__video_load_worker, 
-            args=(path, rotation, filter_complex, output_path, format), 
+            args=(path, rotation, filter_complex, output_path, format, scale), 
             daemon=True,
         )
         self.loading.start()
@@ -398,7 +398,7 @@ class VideoThumbnail(wx.Panel):
         self.ensure_stop_loading()
         event.Skip()
 
-    def __video_load_worker(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG'):
+    def __video_load_worker(self, path, rotation=0, filter_complex=None, output_path=None, format='PNG', scale=None):
         output_fd = None
         try:
             self.frames.clear()
@@ -438,6 +438,10 @@ class VideoThumbnail(wx.Panel):
                         elif rotation == 270:
                             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
                         h, w, _ = frame.shape
+                        if scale is not None:
+                            w, h = int(w * scale) & ~1, int(h * scale) & ~1
+                            interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR_EXACT
+                            frame = cv2.resize(frame, (w, h), interpolation=interpolation)
                         if output_path:
                             image_filename = output_dir / f'f{i + 1:05d}{image_file_ext}'
                             future = executor.submit(_save_frame, output_parent_path / image_filename, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
