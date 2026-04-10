@@ -188,7 +188,7 @@ class MainFrame(ToolFrame):
 
     def __show_preview(self, position):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
-        if image_catalog is None:
+        if not image_catalog:
             self.previewer.clear()
             return
         frame = cv2.imread(str(image_catalog[position]), cv2.IMREAD_UNCHANGED)
@@ -255,7 +255,7 @@ class MainFrame(ToolFrame):
 
     def __on_split_button_clicked(self, event):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
-        if image_catalog is None:
+        if not image_catalog:
             wx.MessageBox('連続画像のカタログファイルが読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
             event.Skip()
             return

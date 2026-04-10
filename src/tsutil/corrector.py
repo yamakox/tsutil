@@ -180,7 +180,15 @@ class MainFrame(ToolFrame):
         # captions
         caption_panel = wx.Panel(panel)
         caption_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
-        caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正の基準画像とブレ測定枠の設定:'), flag=wx.ALIGN_CENTER)
+        base_caption_panel = wx.Panel(caption_panel)
+        base_caption_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(4, 0))
+        base_caption_sizer.AddGrowableCol(1)
+        base_caption_sizer.Add(wx.StaticText(base_caption_panel, label='ブレ補正の基準画像とブレ測定枠の設定:'), flag=wx.ALIGN_CENTER)
+        self.shaking_detection_selector = wx.Choice(base_caption_panel)
+        self.shaking_detection_selector.Bind(wx.EVT_CHOICE, self.__on_shaking_detection_selector_choice)
+        base_caption_sizer.Add(self.shaking_detection_selector, flag=wx.EXPAND|wx.ALL, border=2)
+        base_caption_panel.SetSizerAndFit(base_caption_sizer)
+        caption_sizer.Add(base_caption_panel, flag=wx.EXPAND)
         caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正後のサンプル画像と歪み補正の設定:'), flag=wx.ALIGN_CENTER)
         caption_sizer.Add(wx.StaticText(caption_panel, label='画像補正後のサンプル画像と出力範囲の設定:'), flag=wx.ALIGN_CENTER)
         caption_panel.SetSizerAndFit(caption_sizer)
@@ -190,12 +198,12 @@ class MainFrame(ToolFrame):
         # image viewers
         image_panel = wx.Panel(panel)
         image_sizer = wx.GridSizer(cols=3, gap=wx.Size(MARGIN, 0))
-        self.base_image_viewer = BaseImageViewer(image_panel, self.model.shaking_detection_fields, field_add_mode=True)
+        self.base_image_viewer = BaseImageViewer(image_panel, field_add_mode=True)
         self.base_image_viewer.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         self.base_image_viewer.Bind(EVT_FIELD_ADDED, self.__on_field_added)
         self.base_image_viewer.Bind(EVT_FIELD_DELETED, self.__on_field_deleted)
         image_sizer.Add(self.base_image_viewer, flag=wx.EXPAND)
-        self.deshaking_image_viewer = DeshakingImageViewer(image_panel, self.model.perspective_points, self.model.shaking_detection_fields)
+        self.deshaking_image_viewer = DeshakingImageViewer(image_panel, self.model.perspective_points)
         self.deshaking_image_viewer.Bind(EVT_PERSPECTIVE_POINTS_CHANGED, self.__on_perspective_points_changed)
         image_sizer.Add(self.deshaking_image_viewer, flag=wx.EXPAND)
         self.clip_image_viewer = ClipImageViewer(image_panel, self.model.clip)
@@ -253,7 +261,7 @@ class MainFrame(ToolFrame):
 
     def __set_base_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
-        if image_catalog is None or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
+        if not image_catalog or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
             self.base_image_viewer.clear()
             return
         frame = cv2.imread(str(image_catalog[self.model.base_frame_pos]), cv2.IMREAD_UNCHANGED)
@@ -267,7 +275,7 @@ class MainFrame(ToolFrame):
 
     def __set_sample_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
-        if image_catalog is None or self.model.sample_frame_pos is None or self.model.sample_frame_pos >= len(image_catalog):
+        if not image_catalog or self.model.sample_frame_pos is None or self.model.sample_frame_pos >= len(image_catalog):
             self.deshaking_image_viewer.clear()
             self.clip_image_viewer.clear()
             return
@@ -282,7 +290,7 @@ class MainFrame(ToolFrame):
         if self.model.perspective_points.is_none():
             self.model.perspective_points.init(self.sample_frame)
         self.deshaking_correction.set_sample_image(self.sample_frame, self.model.sample_frame_pos)
-        fields = self.model.shaking_detection_fields if self.model.use_deshake_correction else []
+        fields = self.model.get_shaking_detection_fields() if self.model.use_deshake_correction else []
         angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
         mat = self.deshaking_correction.compute(fields, angle)
         frame = (self.sample_frame // 256).astype(np.uint8) if self.sample_frame.dtype == np.uint16 else self.sample_frame
@@ -326,6 +334,32 @@ class MainFrame(ToolFrame):
         self.model.use_grid = self.use_grid_button.GetValue()
         self.model.rotation_angle = get_spin_ctrl_value(self.rotation)
 
+    def __reset_shaking_detection_selector(self, index: int|None = None):
+        selected_index = index if index is not None else self.shaking_detection_selector.GetSelection()
+        self.shaking_detection_selector.Clear()
+        items = ['デフォルトのブレ測定枠セット']
+        if self.model.extra_shaking_detection_fields is not None:
+            items.extend([f'ブレ測定枠セット - {i + 1}' for i in range(len(self.model.extra_shaking_detection_fields))])
+        items.append('新規のブレ測定枠セットを追加する')
+        self.shaking_detection_selector.AppendItems(items)
+        if selected_index >= 0 and selected_index < len(items) - 1:
+            pass
+        else:
+            selected_index = 0
+        self.shaking_detection_selector.SetSelection(selected_index)
+
+    def __update_shaking_detection_selector(self):
+        selected_index = self.shaking_detection_selector.GetSelection()
+        selecting_index = self.model.get_shaking_detection_fields_index(self.model.sample_frame_pos) + 1
+        if selected_index == selecting_index:
+            return
+        self.shaking_detection_selector.SetSelection(selecting_index)
+        if selecting_index > 0:
+            fields = self.model.extra_shaking_detection_fields[selecting_index - 1]
+            self.base_image_viewer.set_fields(fields)
+        else:
+            self.base_image_viewer.set_fields(self.model.shaking_detection_fields)
+
     def __save_setting(self):
         self.__update_model()
         path = self.__make_setting_file_path()
@@ -358,6 +392,8 @@ class MainFrame(ToolFrame):
                 else:
                     self.base_frame_button.SetValue(True)
                 self.deshaking_image_viewer.set_grid(self.model.use_grid)
+                self.__reset_shaking_detection_selector()
+                self.base_image_viewer.set_fields(self.model.shaking_detection_fields)
         except Exception as e:
             wx.MessageBox(f'設定の読み込みに失敗しました:\n{e}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
 
@@ -367,6 +403,7 @@ class MainFrame(ToolFrame):
             return
         self.model.clear()
         self.input_video_thumbnail.clear()
+        self.__reset_shaking_detection_selector()
         self.base_image_viewer.clear()
         self.deshaking_image_viewer.clear()
         self.clip_image_viewer.clear()
@@ -396,6 +433,7 @@ class MainFrame(ToolFrame):
             self.model.sample_frame_pos = position
         elif self.sample_frame_button.GetValue():
             self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
+        self.__update_shaking_detection_selector()
         self.__update_base_frame_pos_text()
         self.__update_sample_frame_pos_text()
         self.__set_base_image_viewer()
@@ -412,6 +450,7 @@ class MainFrame(ToolFrame):
         elif self.sample_frame_button.GetValue():
             self.model.sample_frame_pos = event.position
             self.__update_sample_frame_pos_text()
+            self.__update_shaking_detection_selector()
             self.__set_sample_image_viewer()
         event.Skip()
 
@@ -429,15 +468,55 @@ class MainFrame(ToolFrame):
         self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
         self.model.select_sample_frame = True
 
+    def __on_shaking_detection_selector_choice(self, event):
+        image_catalog = self.input_video_thumbnail.get_image_catalog()
+        if not image_catalog:
+            self.shaking_detection_selector.SetSelection(0)
+            event.Skip()
+            return
+
+        try:
+            selected_index = event.GetSelection()
+            if selected_index < 0:
+                return
+
+            if self.model.extra_deshaking_sample_frame_pos is None:
+                self.model.extra_deshaking_sample_frame_pos = {}
+
+            if selected_index == 0:
+                self.model.extra_deshaking_sample_frame_pos[self.model.sample_frame_pos] = -1
+                self.base_image_viewer.set_fields(self.model.shaking_detection_fields)
+                return
+
+            selected_index -= 1
+            if selected_index < len(self.model.extra_shaking_detection_fields or []):
+                self.model.extra_deshaking_sample_frame_pos[self.model.sample_frame_pos] = selected_index
+                fields = self.model.extra_shaking_detection_fields[selected_index]
+                self.base_image_viewer.set_fields(fields)
+                return
+
+            if self.model.extra_shaking_detection_fields is None:
+                self.model.extra_shaking_detection_fields = []
+            selected_index = len(self.model.extra_shaking_detection_fields)
+            field = []
+            self.model.extra_shaking_detection_fields.append(field)
+            self.model.extra_deshaking_sample_frame_pos[self.model.sample_frame_pos] = selected_index
+            self.__reset_shaking_detection_selector(selected_index + 1)
+            self.base_image_viewer.set_fields(field)
+        finally:
+            self.__set_sample_image_viewer()
+            self.base_image_viewer.Refresh()
+            event.Skip()
+
     def __on_field_added(self, event):
-        self.model.shaking_detection_fields.append(event.field)
-        self.setting_changed_time = time.time()
+        selected_shaking_detection_fields = self.model.get_shaking_detection_fields()
+        selected_shaking_detection_fields.append(event.field)
         self.__set_sample_image_viewer()
         self.base_image_viewer.Refresh()
 
     def __on_field_deleted(self, event):
-        self.model.shaking_detection_fields.remove(event.field)
-        self.setting_changed_time = time.time()
+        selected_shaking_detection_fields = self.model.get_shaking_detection_fields()
+        selected_shaking_detection_fields.remove(event.field)
         self.__set_sample_image_viewer()
         self.base_image_viewer.Refresh()
 

@@ -245,13 +245,31 @@ class CorrectionDataModel(BaseModel):
     use_nega: bool = False
     use_grid: bool = False
     shaking_detection_fields: list[Rect] = []
+    extra_shaking_detection_fields: list[list[Rect]]|None = None
+    extra_deshaking_sample_frame_pos: dict[int, int]|None = None
     rotation_angle: float|None = None
     perspective_points: PerspectivePoints = PerspectivePoints()
     clip: Rect = Rect()
 
-    def get_shaking_detection_field_list(self):
-        return [f'A{i + 1}: {str(item)}' for i, item in enumerate(self.shaking_detection_fields)]
-    
+    def get_shaking_detection_fields_index(self, sample_frame_pos: int|None = None):
+        if sample_frame_pos is None:
+            sample_frame_pos = self.sample_frame_pos
+        if sample_frame_pos is None or not self.extra_deshaking_sample_frame_pos:
+            return -1
+
+        poslist = sorted(list(self.extra_deshaking_sample_frame_pos.keys()), reverse=True)
+        while len(poslist):
+            pos = poslist.pop(0)
+            if sample_frame_pos >= pos:
+                return self.extra_deshaking_sample_frame_pos[pos]
+        return -1
+
+    def get_shaking_detection_fields(self, sample_frame_pos: int|None = None):
+        index = self.get_shaking_detection_fields_index(sample_frame_pos)
+        if index < 0:
+            return self.shaking_detection_fields
+        return self.extra_shaking_detection_fields[index]
+
     def clear(self):
         self.base_frame_pos = None
         self.sample_frame_pos = None
@@ -263,6 +281,8 @@ class CorrectionDataModel(BaseModel):
         self.use_nega = False
         self.use_grid = False
         self.shaking_detection_fields.clear()
+        self.extra_shaking_detection_fields = None
+        self.extra_deshaking_sample_frame_pos = None
         self.rotation_angle = None
         self.perspective_points.clear()
         self.clip.clear()
@@ -277,8 +297,9 @@ class CorrectionDataModel(BaseModel):
         self.use_overlay = other.use_overlay
         self.use_nega = other.use_nega
         self.use_grid = other.use_grid
-        self.shaking_detection_fields.clear()
-        self.shaking_detection_fields.extend(other.shaking_detection_fields)
+        self.shaking_detection_fields = other.shaking_detection_fields
+        self.extra_shaking_detection_fields = other.extra_shaking_detection_fields
+        self.extra_deshaking_sample_frame_pos = other.extra_deshaking_sample_frame_pos
         self.rotation_angle = other.rotation_angle
         self.perspective_points.copy_from(other.perspective_points)
         self.clip.copy_from(other.clip)

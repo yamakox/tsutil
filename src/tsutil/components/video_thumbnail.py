@@ -141,6 +141,7 @@ class VideoThumbnail(wx.Panel):
         self.Bind(EVT_VIDEO_LOAD_ERROR, self.__on_load_error)
 
         self.mouse_button_timer = wx.Timer(self)
+        self.mouse_button_timer_first = False
         self.Bind(wx.EVT_TIMER, self.__on_mouse_button_timer)
 
     def set_histogram_view(self, histogram_view):
@@ -325,8 +326,9 @@ class VideoThumbnail(wx.Panel):
             if x < self.RANGE_BAR_WIDTH:
                 capture_mouse(self)
                 self.dragging = DRAGGING_LEFT_ARROW
-                self.mouse_button_timer.Start(100)
                 self.__on_mouse_button_timer()
+                self.mouse_button_timer.Start(700)
+                self.mouse_button_timer_first = True
             elif x < self.thumbnail_size[0] + self.RANGE_BAR_WIDTH:
                 capture_mouse(self)
                 self.dragging = DRAGGING_X_ARROW
@@ -335,8 +337,9 @@ class VideoThumbnail(wx.Panel):
             elif x < self.thumbnail_size[0] + self.RANGE_BAR_WIDTH * 2:
                 capture_mouse(self)
                 self.dragging = DRAGGING_RIGHT_ARROW
-                self.mouse_button_timer.Start(100)
                 self.__on_mouse_button_timer()
+                self.mouse_button_timer.Start(700)
+                self.mouse_button_timer_first = True
         event.Skip()
 
     def __on_mouse_up(self, event):
@@ -349,10 +352,10 @@ class VideoThumbnail(wx.Panel):
                 wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
             elif self.dragging == DRAGGING_LEFT_ARROW:
                 self.mouse_button_timer.Stop()
-                print('__on_mouse_up DRAGGING_LEFT_ARROW')
+                self.mouse_button_timer_first = False
             elif self.dragging == DRAGGING_RIGHT_ARROW:
                 self.mouse_button_timer.Stop()
-                print('__on_mouse_up DRAGGING_RIGHT_ARROW')
+                self.mouse_button_timer_first = False
         release_mouse(self)
         self.dragging = DRAGGING_NONE
         self.dragging_dx = 0
@@ -381,7 +384,6 @@ class VideoThumbnail(wx.Panel):
         event.Skip()
 
     def __on_mouse_button_timer(self, event=None):
-        print('__on_mouse_button_timer')
         if self.frames and wx.GetMouseState().LeftIsDown():
             frame_pos = None
             if self.dragging == DRAGGING_LEFT_ARROW:
@@ -392,6 +394,9 @@ class VideoThumbnail(wx.Panel):
                 self.frame_pos = frame_pos
                 self.__update_bitmap()
                 wx.QueueEvent(self, VideoPositionChangedEvent(self.frames, self.get_frame_position(), len(self.frames)))
+            if self.mouse_button_timer_first:
+                self.mouse_button_timer_first = False
+                self.mouse_button_timer.Start(100)
         if event:
             event.Skip()
 
@@ -540,7 +545,7 @@ class VideoThumbnail(wx.Panel):
                         deshaking_correction = DeshakingCorrection()
                         deshaking_correction.set_base_image(base_frame)
                         deshaking_correction.set_sample_image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), index)
-                        fields = correction_model.shaking_detection_fields if correction_model.use_deshake_correction else []
+                        fields = correction_model.get_shaking_detection_fields(index) if correction_model.use_deshake_correction else []
                         angle = correction_model.rotation_angle if correction_model.use_rotation_correction else 0.0
                         mat = deshaking_correction.compute(fields, angle, output.log_fd)
                         if correction_model.use_perspective_correction:
