@@ -60,14 +60,18 @@ class MainFrame(ToolFrame):
         input_video_sizer.AddGrowableCol(0)
 
         input_frame_panel = wx.Panel(input_video_panel)
-        input_frame_sizer = wx.GridSizer(cols=2, gap=wx.Size(MARGIN, 0))
+        input_frame_sizer = wx.FlexGridSizer(cols=4, gap=wx.Size(MARGIN, 0))
+        input_frame_sizer.AddGrowableCol(1)
+        input_frame_sizer.AddGrowableCol(2)
+        input_frame_sizer.AddSpacer(MARGIN)
         self.base_frame_button = wx.RadioButton(input_frame_panel, label='ブレ補正の基準画像を選択する', style=wx.RB_GROUP)
         self.base_frame_button.SetValue(True)
-        input_frame_sizer.Add(self.base_frame_button, flag=wx.ALIGN_CENTER)
+        input_frame_sizer.Add(self.base_frame_button, flag=wx.EXPAND)
         self.sample_frame_button = wx.RadioButton(input_frame_panel, label='補正対象のサンプル画像を選択する')
-        input_frame_sizer.Add(self.sample_frame_button, flag=wx.ALIGN_CENTER)
+        input_frame_sizer.Add(self.sample_frame_button, flag=wx.EXPAND)
+        input_frame_sizer.AddSpacer(MARGIN)
         input_frame_panel.SetSizerAndFit(input_frame_sizer)
-        input_video_sizer.Add(input_frame_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=4)
+        input_video_sizer.Add(input_frame_panel, flag=wx.EXPAND|wx.BOTTOM, border=4)
 
         self.input_video_thumbnail = VideoThumbnail(input_video_panel, use_x_arrow=True)
         input_video_sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND)
@@ -239,6 +243,14 @@ class MainFrame(ToolFrame):
         panel.SetSizerAndFit(sizer)
         return panel
 
+    def __update_base_frame_pos_text(self):
+        count = self.input_video_thumbnail.get_frame_count()
+        self.base_frame_button.SetLabel(f'ブレ補正の基準画像を選択する: フレーム位置 {self.model.base_frame_pos}/{count}')
+
+    def __update_sample_frame_pos_text(self):
+        count = self.input_video_thumbnail.get_frame_count()
+        self.sample_frame_button.SetLabel(f'補正対象のサンプル画像を選択する: フレーム位置 {self.model.sample_frame_pos}/{count}')
+
     def __set_base_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
         if image_catalog is None or self.model.base_frame_pos is None or self.model.base_frame_pos >= len(image_catalog):
@@ -384,6 +396,8 @@ class MainFrame(ToolFrame):
             self.model.sample_frame_pos = position
         elif self.sample_frame_button.GetValue():
             self.input_video_thumbnail.set_frame_position(self.model.sample_frame_pos)
+        self.__update_base_frame_pos_text()
+        self.__update_sample_frame_pos_text()
         self.__set_base_image_viewer()
         self.__set_sample_image_viewer()
         self.Refresh()
@@ -392,10 +406,12 @@ class MainFrame(ToolFrame):
     def __on_video_position_changed(self, event):
         if self.base_frame_button.GetValue():
             self.model.base_frame_pos = event.position
+            self.__update_base_frame_pos_text()
             self.__set_base_image_viewer()
             self.__set_sample_image_viewer()
         elif self.sample_frame_button.GetValue():
             self.model.sample_frame_pos = event.position
+            self.__update_sample_frame_pos_text()
             self.__set_sample_image_viewer()
         event.Skip()
 
