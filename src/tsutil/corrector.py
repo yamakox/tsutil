@@ -337,10 +337,10 @@ class MainFrame(ToolFrame):
     def __reset_shaking_detection_selector(self, index: int|None = None):
         selected_index = index if index is not None else self.shaking_detection_selector.GetSelection()
         self.shaking_detection_selector.Clear()
-        items = ['デフォルトのブレ測定枠セット']
+        items = ['デフォルトのブレ測定枠パターン']
         if self.model.extra_shaking_detection_fields is not None:
-            items.extend([f'ブレ測定枠セット - {i + 1}' for i in range(len(self.model.extra_shaking_detection_fields))])
-        items.append('新規のブレ測定枠セットを追加する')
+            items.extend([f'ブレ測定枠パターン - {i + 1}' for i in range(len(self.model.extra_shaking_detection_fields))])
+        items.append('新規のブレ測定枠パターンを追加する')
         self.shaking_detection_selector.AppendItems(items)
         if selected_index >= 0 and selected_index < len(items) - 1:
             pass
