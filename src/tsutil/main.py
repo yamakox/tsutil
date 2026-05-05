@@ -14,12 +14,11 @@ class MainApp(wx.App):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
 
+    def OnInit(self):
         # wxPythonのcontrolをシステム言語で表示できるようにする
         # NOTE: ただし、ファイル選択ダイアログは英語のまま
-        lang_code = wx.Locale().GetSystemLanguage()
-        locale = wx.Locale(lang_code)
+        self.locale = wx.Locale(wx.LANGUAGE_DEFAULT)
 
-    def OnInit(self):
         if not shutil.which('ffmpeg'):
             wx.MessageBox(
                 "ffmpegが見つかりません。\nインストールしてください。",
