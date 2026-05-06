@@ -351,9 +351,8 @@ class MainFrame(ToolFrame):
     def __update_shaking_detection_selector(self):
         selected_index = self.shaking_detection_selector.GetSelection()
         selecting_index = self.model.get_shaking_detection_fields_index(self.model.sample_frame_pos) + 1
-        if selected_index == selecting_index:
-            return
-        self.shaking_detection_selector.SetSelection(selecting_index)
+        if selected_index != selecting_index:
+            self.shaking_detection_selector.SetSelection(selecting_index)
         if selecting_index > 0:
             fields = self.model.extra_shaking_detection_fields[selecting_index - 1]
             self.base_image_viewer.set_fields(fields)
