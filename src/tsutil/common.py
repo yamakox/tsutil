@@ -83,6 +83,13 @@ else:
     def release_mouse(window: wx.Window):
         pass
 
+if sys.platform == 'darwin':
+    def _get_fg_color():
+        return wx.Colour("BLACK")
+else:
+    def _get_fg_color():
+        return wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWTEXT)
+
 # MARK: DnD file picker ctrl
 
 class FilePickerDropTarget(wx.FileDropTarget):
@@ -95,7 +102,10 @@ class FilePickerDropTarget(wx.FileDropTarget):
         self.suffixes = [x.lstrip('*').lower() for x in match.groups()[1].split(';')]
 
         self.file_picker = file_picker
-        self.file_picker.TextCtrl.SetEditable(False)
+        self.file_picker.TextCtrl.Enable(False)
+
+        self.file_picker.TextCtrl.SetForegroundColour(_get_fg_color())
+        self.file_picker.TextCtrl.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.file_picker.TextCtrl.SetHint(f'ここにドラッグ&ドロップできます: {file_types}')
         self.text_ctrl_bgcolor = self.file_picker.TextCtrl.GetBackgroundColour()
 
