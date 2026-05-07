@@ -5,13 +5,23 @@ import cv2
 import logging
 import os
 import sys
+import re
 import wx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# MARK: logger "tsutil"
+# MARK: constants
 
+APP_NAME = "tsutil"
+MOVIE_FILE_SUFFIX = ['.mp4', '.mov', '.m4v']
+MOVIE_FILE_WILDCARD = '動画ファイル (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v'
+IMAGE_CATALOG_FILE_SUFFIX = ['.txt', '.lst']
+IMAGE_CATALOG_FILE_WILDCARD = '連続画像のカタログファイル (*.txt;*.lst)|*.txt;*.lst'
+IMAGE_FILE_WILDCARD = '画像ファイル (*.png;*.jpg)|*.png;*.jpg'
+GIF_FILE_WILDCARD = 'GIFファイル (*.gif)|*.gif'
+
+# MARK: logger 'tsutil'
 logger: logging.Logger|None = logging.getLogger('tsutil')
 debug = os.environ.get('DEBUG')
 logger.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -35,16 +45,6 @@ def dpi_aware_size(w: wx.Window, sz: wx.Size) -> wx.Size:
             int(sz.GetHeight() * int(dpi_aware_value) / base_dpi + .5)
         )
     return w.FromDIP(sz)
-
-# MARK: constants
-
-APP_NAME = "tsutil"
-MOVIE_FILE_SUFFIX = ['.mp4', '.mov', '.m4v']
-MOVIE_FILE_WILDCARD = 'Movie files (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v'
-IMAGE_CATALOG_FILE_SUFFIX = ['.txt', '.lst']
-IMAGE_CATALOG_FILE_WILDCARD = 'Image catalog files (*.txt;*.lst)|*.txt;*.lst'
-IMAGE_FILE_WILDCARD = 'Image files (*.png;*.jpg)|*.png;*.jpg'
-GIF_FILE_WILDCARD = 'GIF files (*.gif)|*.gif'
 
 # MARK: utility functions
 
@@ -70,6 +70,7 @@ def get_spin_ctrl_value(spin_ctrl):
     except:
         return spin_ctrl.GetValue()
 
+# MARK: platform dependency
 if sys.platform == 'win32':
     def capture_mouse(window: wx.Window):
         window.CaptureMouse()
@@ -81,6 +82,43 @@ else:
         pass
     def release_mouse(window: wx.Window):
         pass
+
+# MARK: DnD file picker ctrl
+
+class FilePickerDropTarget(wx.FileDropTarget):
+    def __init__(self, file_picker: wx.FilePickerCtrl, wildcard: str):
+        super().__init__()
+        match = re.search(r'^(.+)\|([^\|]+)$', wildcard)
+        if not match:
+            raise Exception(f'invalid wildcard: {wildcard}')
+        file_types = match.groups()[0]
+        self.suffixes = [x.lstrip('*').lower() for x in match.groups()[1].split(';')]
+
+        self.file_picker = file_picker
+        self.file_picker.TextCtrl.SetEditable(False)
+        self.file_picker.TextCtrl.SetHint(f'ここにドラッグ&ドロップできます: {file_types}')
+        self.text_ctrl_bgcolor = self.file_picker.TextCtrl.GetBackgroundColour()
+
+    def OnEnter(self, x, y, default):
+        self.file_picker.TextCtrl.SetBackgroundColour(wx.Colour(255, 140, 170))
+        return default
+
+    def OnLeave(self):
+        self.file_picker.TextCtrl.SetBackgroundColour(self.text_ctrl_bgcolor)
+
+    def OnDropFiles(self, x, y, filenames):
+        self.file_picker.TextCtrl.SetBackgroundColour(self.text_ctrl_bgcolor)
+        filename = Path(filenames[0])
+        if filename.suffix.lower() in self.suffixes:
+            self.file_picker.TextCtrl.SetValue(str(filename))
+        return True
+
+def make_file_picker_ctrl(parent, message, wildcard, style):
+    file_picker = wx.FilePickerCtrl(
+        parent, message=message, wildcard=wildcard, style=style
+    )
+    file_picker.SetDropTarget(FilePickerDropTarget(file_picker, wildcard))
+    return file_picker
 
 # MARK: common models
 

@@ -41,7 +41,7 @@ class MainFrame(ToolFrame):
         input_file_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         input_file_sizer.AddGrowableCol(1)
         input_file_sizer.Add(wx.StaticText(input_file_panel, label='連続画像に展開する動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
-        self.input_file_picker = wx.FilePickerCtrl(
+        self.input_file_picker = make_file_picker_ctrl(
             input_file_panel,
             message='動画ファイルを選択してください。', 
             wildcard=MOVIE_FILE_WILDCARD, 
