@@ -48,7 +48,7 @@ def dpi_aware_size(w: wx.Window, sz: wx.Size) -> wx.Size:
 
 # MARK: utility functions
 
-def get_path(path: str) -> Path:
+def get_path(path: str) -> Path | None:
     if not path:
         return None
     return Path(path)
@@ -62,12 +62,12 @@ def get_spin_ctrl_value(spin_ctrl):
         return spin_ctrl.GetValue()
     try:
         _min, _max = spin_ctrl.GetMin(), spin_ctrl.GetMax()
-        if type(_min) == int:
+        if type(_min) is int:
             value = int(value)
         else:
             value = float(value)
         return min(max(_min, value), _max)
-    except:
+    except Exception:
         return spin_ctrl.GetValue()
 
 # MARK: platform dependency
@@ -258,10 +258,10 @@ class PerspectivePoints(BaseModel):
         return min(self.left_bottom.y, self.right_bottom.y)
 
     def get_transform_matrix(self):
-        l = self.left_limit()
-        t = self.top_limit()
-        r = self.right_limit()
-        b = self.bottom_limit()
+        left = self.left_limit()
+        top = self.top_limit()
+        right = self.right_limit()
+        bottom = self.bottom_limit()
         return cv2.getPerspectiveTransform(
             np.float32([
                 self.left_top.to_tuple(), 
@@ -270,10 +270,10 @@ class PerspectivePoints(BaseModel):
                 self.left_bottom.to_tuple(), 
             ]), 
             np.float32([
-                [l, t], 
-                [r, t], 
-                [r, b], 
-                [l, b], 
+                [left, top], 
+                [right, top], 
+                [right, bottom], 
+                [left, bottom], 
             ])
         )
 

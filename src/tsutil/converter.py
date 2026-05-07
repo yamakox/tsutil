@@ -269,7 +269,7 @@ class MainFrame(ToolFrame):
         if w < movie_width:
             _w = int(movie_height * self.raw_image.shape[1] / self.raw_image.shape[0] * (1 + thumb_height.value))
             if _w < 100:
-                wx.MessageBox(f'入力パラメータエラー: サムネイルの高さを小さくするかサムネイルなしにしてください。')
+                wx.MessageBox('入力パラメータエラー: サムネイルの高さを小さくするかサムネイルなしにしてください。')
             else:
                 wx.MessageBox(f'入力パラメータエラー: 動画の幅を {_w} 以下に設定してください。')
                 self.movie_width.SetValue(_w)

@@ -9,7 +9,7 @@ from fffio import FrameWriter
 from .common import *
 from .tool_frame import ToolFrame
 from .components.range_image_viewer import RangeImageViewer, EVT_FIELD_SELECTED
-from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE, EVT_MOUSE_OVER_IMAGE, EVT_MOUSE_CLICK_IMAGE
+from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE, EVT_MOUSE_OVER_IMAGE
 from .functions import sigmoid_space
 
 # MARK: constants

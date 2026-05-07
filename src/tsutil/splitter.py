@@ -1,7 +1,6 @@
 import wx
 import wx.adv
 import cv2
-from PIL import Image
 from .common import *
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
@@ -278,7 +277,7 @@ class MainFrame(ToolFrame):
             for i, (b, e) in enumerate(zip([0] + self.positions, self.positions + [len(lines)])):
                 with open(output_dir / f'{fn}_{i + 1}{ext}', 'w') as f:
                     f.writelines(lines[b:e])
-            answer = wx.MessageBox(f'分割ファイルの保存が完了しました。\nフォルダーを開きますか?', '処理完了', wx.OK|wx.CANCEL|wx.ICON_QUESTION)
+            answer = wx.MessageBox('分割ファイルの保存が完了しました。\nフォルダーを開きますか?', '処理完了', wx.OK|wx.CANCEL|wx.ICON_QUESTION)
             if answer == wx.OK:
                 wx.LaunchDefaultApplication(str(output_dir))
         except Exception as excep:
@@ -297,7 +296,7 @@ class MainFrame(ToolFrame):
                 return
             paths = [get_path(i) for i in fileDialog.GetPaths()]
             if len(paths) < 2:
-                wx.MessageBox(f'結合するカタログファイルは2つ以上選択してください。', 'エラー', wx.OK|wx.ICON_ERROR)
+                wx.MessageBox('結合するカタログファイルは2つ以上選択してください。', 'エラー', wx.OK|wx.ICON_ERROR)
                 event.Skip()
                 return
             paths.sort()

@@ -96,8 +96,6 @@ class DeshakingImageViewer(BaseImageViewer):
     def on_mouse_up(self, event):
         if self.image is None:
             return
-        x = event.GetX()
-        y = event.GetY()
         if self.dragging in [DRAGGING_CORNER_LT, DRAGGING_CORNER_RT, DRAGGING_CORNER_RB, DRAGGING_CORNER_LB]:
             wx.QueueEvent(self, PerspectivePointsChangedEvent(self.perspective_points))
             release_mouse(self)

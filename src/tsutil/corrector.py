@@ -372,7 +372,7 @@ class MainFrame(ToolFrame):
         if not path_exists(path):
             return
         def _g(value, default_value):
-            if type(value) == float:
+            if type(value) is float:
                 return f'{value:.2f}'
             return value
         try:

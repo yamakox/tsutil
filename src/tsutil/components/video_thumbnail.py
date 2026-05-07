@@ -11,7 +11,6 @@ from numba import njit
 from fffio import FrameReader, Probe
 from .resource import resource
 from ..common import *
-from .histogram_view import HistogramView
 from ..functions import DeshakingCorrection
 
 # MARK: constants

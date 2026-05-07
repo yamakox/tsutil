@@ -1,6 +1,5 @@
 import wx
 import wx.adv
-from pathlib import Path
 import os
 from subprocess import Popen, PIPE
 from .common import *

@@ -1,6 +1,5 @@
 import wx
 import wx.adv
-from pathlib import Path
 import time
 from .common import *
 from .tool_frame import ToolFrame
@@ -12,7 +11,6 @@ import ffmpeg
 import numpy as np
 import cv2
 import json
-import re
 
 # MARK: constants
 
@@ -172,11 +170,11 @@ class MainFrame(ToolFrame):
         style = wx.RB_GROUP
         rot = str(self.rotation)
         self.rotation_buttons = {}
-        for l, n in (('0°', '0'), ('90°', '90'), ('180°', '180'), ('270°', '270')):
-            rotation_button = wx.RadioButton(rotation_panel, label=l, name=n, style=style)
-            self.rotation_buttons[n] = rotation_button
+        for lbl, num in (('0°', '0'), ('90°', '90'), ('180°', '180'), ('270°', '270')):
+            rotation_button = wx.RadioButton(rotation_panel, label=lbl, name=num, style=style)
+            self.rotation_buttons[num] = rotation_button
             style = 0
-            if n == rot:
+            if num == rot:
                 rotation_button.SetValue(True)
             rotation_sizer.Add(rotation_button, flag=wx.ALIGN_CENTER)
             rotation_button.Bind(wx.EVT_RADIOBUTTON, self.__on_rotation_changed)
@@ -315,9 +313,9 @@ class MainFrame(ToolFrame):
             stream = ffmpeg.input(path, ss=position / self.probe.fps).video
             if filter_complex:
                 for k, v in filter_complex.items():
-                    if type(v) == dict:
+                    if type(v) is dict:
                         stream = stream.filter_(k, **v)
-                    elif type(v) == list or type(v) == tuple:
+                    elif type(v) is list or type(v) is tuple:
                         stream = stream.filter_(k, *v)
                     else:
                         stream = stream.filter_(k, v)
@@ -440,7 +438,7 @@ class MainFrame(ToolFrame):
         def _g(setting, name, default_value):
             if name not in setting:
                 return default_value
-            if type(setting[name]) == float:
+            if type(setting[name]) is float:
                 return f'{setting[name]:.2f}'
             return setting[name]
         with open(path, 'r') as f:
