@@ -1,6 +1,6 @@
 import wx
-from .base_image_viewer import *
-from ..common import *
+from .base_image_viewer import BaseImageViewer, DRAGGING_NONE
+from ..common import Rect, dpi_aware, capture_mouse, release_mouse
 
 # MARK: constants
 

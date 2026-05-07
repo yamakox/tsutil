@@ -2,7 +2,7 @@ import wx
 import wx.adv
 import os
 from subprocess import Popen, PIPE
-from .common import *
+from .common import logger, make_file_picker_ctrl, MOVIE_FILE_WILDCARD, get_path, path_exists
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_RANGE_CHANGED
 from fffio import Probe

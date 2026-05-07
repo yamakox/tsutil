@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import io
 from PIL import Image
 from numba import njit
-from ..common import *
+from ..common import dpi_aware_size
 
 # MARK: constants
 

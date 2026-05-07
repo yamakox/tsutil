@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from .common import *
+from .common import Rect
 #from PIL import Image
 from typing import TextIO, Sequence
 import sys

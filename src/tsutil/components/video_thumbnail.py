@@ -10,7 +10,7 @@ import concurrent.futures as futures
 from numba import njit
 from fffio import FrameReader, Probe
 from .resource import resource
-from ..common import *
+from ..common import logger, dpi_aware, CorrectionDataModel, capture_mouse, release_mouse, APP_NAME
 from ..functions import DeshakingCorrection
 
 # MARK: constants

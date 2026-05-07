@@ -5,7 +5,7 @@ from typing import Callable
 from importlib.metadata import version, metadata
 import shutil
 import subprocess
-from .common import *
+from .common import APP_NAME, dpi_aware_size
 from . import trimmer, extractor, corrector, adjuster, converter, converter2, splitter
 
 # MARK: constants

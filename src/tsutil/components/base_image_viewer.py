@@ -1,6 +1,6 @@
 import wx
-from .image_viewer import *
-from ..common import *
+from .image_viewer import ImageViewer, DRAGGING_NONE
+from ..common import Rect, capture_mouse, release_mouse
 
 # MARK: constants
 

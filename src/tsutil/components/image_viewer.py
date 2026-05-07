@@ -2,7 +2,7 @@ import wx
 import numpy as np
 import cv2
 from .resource import resource
-from ..common import *
+from ..common import dpi_aware_size, dpi_aware, capture_mouse, release_mouse
 
 # MARK: constants
 
