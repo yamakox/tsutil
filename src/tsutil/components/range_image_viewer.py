@@ -11,13 +11,14 @@ DRAGGING_RECT = 101
 myEVT_FIELD_SELECTED = wx.NewEventType()
 EVT_FIELD_SELECTED = wx.PyEventBinder(myEVT_FIELD_SELECTED)
 
+
 class FieldSelectedEvent(wx.ThreadEvent):
     def __init__(self, field: Rect):
         super().__init__(myEVT_FIELD_SELECTED)
         self.field = field
 
-# MARK: main class
 
+# MARK: main class
 class RangeImageViewer(ImageViewer):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -63,9 +64,15 @@ class RangeImageViewer(ImageViewer):
             sz = self.dragging_rect.get_size()
             if sz[0] * sz[1]:
                 if self.dragging_rect.right < self.dragging_rect.left:
-                    self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left
+                    self.dragging_rect.left, self.dragging_rect.right = (
+                        self.dragging_rect.right,
+                        self.dragging_rect.left,
+                    )
                 if self.dragging_rect.bottom < self.dragging_rect.top:
-                    self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
+                    self.dragging_rect.top, self.dragging_rect.bottom = (
+                        self.dragging_rect.bottom,
+                        self.dragging_rect.top,
+                    )
                 wx.QueueEvent(self, FieldSelectedEvent(self.dragging_rect))
             release_mouse(self)
             self.dragging = DRAGGING_NONE
@@ -86,10 +93,10 @@ class RangeImageViewer(ImageViewer):
             if ix is not None:
                 if event.ShiftDown():
                     dx, dy = ix - self.dragging_x, iy - self.dragging_y
-                    if abs(dx) > 16/9 * abs(dy):
-                        dx = int(16/9 * dy + .5)
+                    if abs(dx) > 16 / 9 * abs(dy):
+                        dx = int(16 / 9 * dy + 0.5)
                     else:
-                        dy = int(9/16 * dx + .5)
+                        dy = int(9 / 16 * dx + 0.5)
                     self.dragging_rect.left = self.dragging_x - dx
                     self.dragging_rect.right = self.dragging_x + dx
                     self.dragging_rect.top = self.dragging_y - dy

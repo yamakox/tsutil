@@ -15,10 +15,10 @@ WINDOW_SIZE = (800, 400)
 MARGIN1 = 16
 MARGIN2 = 8
 
-# MARK: main window
 
+# MARK: main window
 class MainFrame(wx.Frame):
-    def __init__(self, parent: wx.Window|None = None, *args, **kw):
+    def __init__(self, parent: wx.Window | None = None, *args, **kw):
         super().__init__(parent, title=f'{APP_NAME} v{version(PACKAGE_NAME)}', *args, **kw)
         if sys.platform == 'win32':
             self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_3DFACE))
@@ -32,20 +32,59 @@ class MainFrame(wx.Frame):
         frame_sizer = wx.GridSizer(rows=1, cols=1, gap=wx.Size(0, 0))
         panel = wx.Panel(self)
 
-
         buttons_group = [
             [
-                (True, '【 動画のトリミング 】', 'カメラで撮影した動画の不要な前後部分を\n無劣化で削除します。', self.__launch_trimmer),
-                (True, '【 動画から連続画像の展開 】', '動画の各フレームを連続した画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。', self.__launch_extractor),
-                (True, '【 連続画像のブレ・傾き・歪みの補正 】', '連続した画像ファイルの\nブレ、水平出し、台形補正を行います。', self.__launch_corrector),
-                (True, '【 連続画像のカタログファイルの分割・結合 】', '連続画像を分けて画像補正処理する必要がある場合\n連続した画像のカタログファイルを分割・結合します。', self.__launch_splitter),
-            ], 
+                (
+                    True,
+                    '【 動画のトリミング 】',
+                    'カメラで撮影した動画の不要な前後部分を\n無劣化で削除します。',
+                    self.__launch_trimmer,
+                ),
+                (
+                    True,
+                    '【 動画から連続画像の展開 】',
+                    '動画の各フレームを連続した画像ファイルに展開します。\n展開時に輝度や色の調整を行うことができます。',
+                    self.__launch_extractor,
+                ),
+                (
+                    True,
+                    '【 連続画像のブレ・傾き・歪みの補正 】',
+                    '連続した画像ファイルの\nブレ、水平出し、台形補正を行います。',
+                    self.__launch_corrector,
+                ),
+                (
+                    True,
+                    '【 連続画像のカタログファイルの分割・結合 】',
+                    '連続画像を分けて画像補正処理する必要がある場合\n連続した画像のカタログファイルを分割・結合します。',
+                    self.__launch_splitter,
+                ),
+            ],
             [
-                (shutil.which('trainscanner') is not None, '【 TrainScanner 】', 'TrainScannerを起動します。\n', self.__launch_trainscanner), 
-                (True, '【 ステッチング画像の縦横比の調整 】', 'ステッチング後の画像ファイルに対して\n一両ずつ長さと高さを調整します。', self.__launch_adjuster),
-                (True, '【 ステッチング画像から動画に変換 】', 'ステッチング後の画像ファイルから\nSNSに投稿できる動画に変換します。', self.__launch_converter),
-                (True, '【 ステッチング画像から動画に変換2 】', '拡大・縮小しながら表示位置が\n変わっていく複雑な動画を作成します。', self.__launch_converter2),
-            ], 
+                (
+                    shutil.which('trainscanner') is not None,
+                    '【 TrainScanner 】',
+                    'TrainScannerを起動します。\n',
+                    self.__launch_trainscanner,
+                ),
+                (
+                    True,
+                    '【 ステッチング画像の縦横比の調整 】',
+                    'ステッチング後の画像ファイルに対して\n一両ずつ長さと高さを調整します。',
+                    self.__launch_adjuster,
+                ),
+                (
+                    True,
+                    '【 ステッチング画像から動画に変換 】',
+                    'ステッチング後の画像ファイルから\nSNSに投稿できる動画に変換します。',
+                    self.__launch_converter,
+                ),
+                (
+                    True,
+                    '【 ステッチング画像から動画に変換2 】',
+                    '拡大・縮小しながら表示位置が\n変わっていく複雑な動画を作成します。',
+                    self.__launch_converter2,
+                ),
+            ],
         ]
 
         sizer = wx.GridSizer(cols=len(buttons_group), gap=wx.Size(MARGIN1, 0))
@@ -63,12 +102,14 @@ class MainFrame(wx.Frame):
 
         panel.SetSizer(sizer)
 
-        frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=MARGIN1)
+        frame_sizer.Add(panel, flag=wx.EXPAND | wx.ALL, border=MARGIN1)
         self.SetSizer(frame_sizer)
 
         self.Bind(wx.EVT_CLOSE, self.__on_close)
 
-    def __make_button(self, panel: wx.Panel, mainLabel: str, note: str, callback: Callable[[wx.CommandEvent], None]) -> wx.adv.CommandLinkButton:
+    def __make_button(
+        self, panel: wx.Panel, mainLabel: str, note: str, callback: Callable[[wx.CommandEvent], None]
+    ) -> wx.adv.CommandLinkButton:
         btn = wx.adv.CommandLinkButton(panel, mainLabel=mainLabel, note=note)
         btn.DisableFocusFromKeyboard()
         btn.Bind(wx.EVT_BUTTON, callback)

@@ -13,7 +13,7 @@ load_dotenv()
 
 # MARK: constants
 
-APP_NAME = "tsutil"
+APP_NAME = 'tsutil'
 MOVIE_FILE_SUFFIX = ['.mp4', '.mov', '.m4v']
 MOVIE_FILE_WILDCARD = '動画ファイル (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v'
 IMAGE_CATALOG_FILE_SUFFIX = ['.txt', '.lst']
@@ -22,39 +22,45 @@ IMAGE_FILE_WILDCARD = '画像ファイル (*.png;*.jpg)|*.png;*.jpg'
 GIF_FILE_WILDCARD = 'GIFファイル (*.gif)|*.gif'
 
 # MARK: logger 'tsutil'
-logger: logging.Logger|None = logging.getLogger('tsutil')
+logger: logging.Logger | None = logging.getLogger('tsutil')
 debug = os.environ.get('DEBUG')
 logger.setLevel(logging.DEBUG if debug else logging.INFO)
 logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(message)s", 
+    format='%(asctime)s [%(levelname)s] %(message)s',
 )
 
 # MARK: dpi_aware
 dpi_aware_value = os.environ.get('DPI_AWARE')
 base_dpi = 96
 
+
 def dpi_aware(w: wx.Window, value: int) -> int:
     if dpi_aware_value:
-        return int(value * int(dpi_aware_value) / base_dpi + .5)
+        return int(value * int(dpi_aware_value) / base_dpi + 0.5)
     return w.FromDIP(value)
+
 
 def dpi_aware_size(w: wx.Window, sz: wx.Size) -> wx.Size:
     if dpi_aware_value:
         return wx.Size(
-            int(sz.GetWidth() * int(dpi_aware_value) / base_dpi + .5), 
-            int(sz.GetHeight() * int(dpi_aware_value) / base_dpi + .5)
+            int(sz.GetWidth() * int(dpi_aware_value) / base_dpi + 0.5),
+            int(sz.GetHeight() * int(dpi_aware_value) / base_dpi + 0.5),
         )
     return w.FromDIP(sz)
 
+
 # MARK: utility functions
+
 
 def get_path(path: str) -> Path | None:
     if not path:
         return None
     return Path(path)
 
+
 def path_exists(path: Path) -> bool:
     return path and path.exists()
+
 
 def get_spin_ctrl_value(spin_ctrl):
     value = spin_ctrl.GetTextValue()
@@ -70,27 +76,37 @@ def get_spin_ctrl_value(spin_ctrl):
     except Exception:
         return spin_ctrl.GetValue()
 
+
 # MARK: platform dependency
+
 if sys.platform == 'win32':
+
     def capture_mouse(window: wx.Window):
         window.CaptureMouse()
+
     def release_mouse(window: wx.Window):
         if window.HasCapture():
             window.ReleaseMouse()
 else:
+
     def capture_mouse(window: wx.Window):
         pass
+
     def release_mouse(window: wx.Window):
         pass
 
+
 if sys.platform == 'darwin':
+
     def _get_fg_color():
-        return wx.Colour("BLACK")
+        return wx.Colour('BLACK')
 else:
+
     def _get_fg_color():
         return wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWTEXT)
 
 # MARK: DnD file picker ctrl
+
 
 class FilePickerDropTarget(wx.FileDropTarget):
     def __init__(self, file_picker: wx.FilePickerCtrl, wildcard: str):
@@ -123,24 +139,25 @@ class FilePickerDropTarget(wx.FileDropTarget):
             self.file_picker.TextCtrl.SetValue(str(filename))
         return True
 
+
 def make_file_picker_ctrl(parent, message, wildcard, style):
-    file_picker = wx.FilePickerCtrl(
-        parent, message=message, wildcard=wildcard, style=style
-    )
+    file_picker = wx.FilePickerCtrl(parent, message=message, wildcard=wildcard, style=style)
     file_picker.SetDropTarget(FilePickerDropTarget(file_picker, wildcard))
     return file_picker
 
+
 # MARK: common models
 
+
 class Point(BaseModel):
-    x: int|None = None
-    y: int|None = None
+    x: int | None = None
+    y: int | None = None
 
     def __str__(self) -> str:
         return f'({self.x},{self.y})'
-        #if None in [self.x, self.y]:
+        # if None in [self.x, self.y]:
         #    return f'({self.x}, {self.y})'
-        #return f'({self.x:4d}, {self.y:4d})'
+        # return f'({self.x:4d}, {self.y:4d})'
 
     def clear(self):
         self.x = None
@@ -160,11 +177,12 @@ class Point(BaseModel):
     def to_tuple(self):
         return self.x, self.y
 
+
 class Rect(BaseModel):
-    left: int|None = None
-    top: int|None = None
-    right: int|None = None
-    bottom: int|None = None
+    left: int | None = None
+    top: int | None = None
+    right: int | None = None
+    bottom: int | None = None
 
     def clear(self):
         self.left = None
@@ -187,7 +205,7 @@ class Rect(BaseModel):
         self.right = right
         self.bottom = bottom
 
-    def contains(self, pos: Point|tuple[int, int]):
+    def contains(self, pos: Point | tuple[int, int]):
         x, y = pos if type(pos) is tuple else (pos.x, pos.y)
         return self.left <= x < self.right and self.top <= y < self.bottom
 
@@ -195,22 +213,23 @@ class Rect(BaseModel):
         x, y = self.get_center()
         w, h = self.get_size()
         return f'({x},{y}) {w}x{h}'
-        #if x is None:
+        # if x is None:
         #    return '(None, None) None x None'
-        #return f'({x:4d}, {y:4d}) {w:4d} x {h:4d}'
+        # return f'({x:4d}, {y:4d}) {w:4d} x {h:4d}'
 
-    def to_tuple(self) -> tuple[int|None, int|None, int|None, int|None]:
+    def to_tuple(self) -> tuple[int | None, int | None, int | None, int | None]:
         return self.left, self.top, self.right, self.bottom
 
-    def get_center(self) -> tuple[int|None, int|None]:
+    def get_center(self) -> tuple[int | None, int | None]:
         if None in [self.left, self.top, self.right, self.bottom]:
             return None, None
         return (self.left + self.right) // 2, (self.top + self.bottom) // 2
 
-    def get_size(self) -> tuple[int|None, int|None]:
+    def get_size(self) -> tuple[int | None, int | None]:
         if None in [self.left, self.top, self.right, self.bottom]:
             return None, None
         return (self.right - self.left), (self.bottom - self.top)
+
 
 class PerspectivePoints(BaseModel):
     left_top: Point = Point()
@@ -232,10 +251,10 @@ class PerspectivePoints(BaseModel):
 
     def is_none(self):
         return (
-            self.left_top.is_none() or 
-            self.right_top.is_none() or 
-            self.right_bottom.is_none() or 
-            self.left_bottom.is_none()
+            self.left_top.is_none()
+            or self.right_top.is_none()
+            or self.right_bottom.is_none()
+            or self.left_bottom.is_none()
         )
 
     def init(self, frame: np.ndarray):
@@ -263,28 +282,32 @@ class PerspectivePoints(BaseModel):
         right = self.right_limit()
         bottom = self.bottom_limit()
         return cv2.getPerspectiveTransform(
-            np.float32([
-                self.left_top.to_tuple(), 
-                self.right_top.to_tuple(), 
-                self.right_bottom.to_tuple(), 
-                self.left_bottom.to_tuple(), 
-            ]), 
-            np.float32([
-                [left, top], 
-                [right, top], 
-                [right, bottom], 
-                [left, bottom], 
-            ])
+            np.float32(
+                [
+                    self.left_top.to_tuple(),
+                    self.right_top.to_tuple(),
+                    self.right_bottom.to_tuple(),
+                    self.left_bottom.to_tuple(),
+                ]
+            ),
+            np.float32(
+                [
+                    [left, top],
+                    [right, top],
+                    [right, bottom],
+                    [left, bottom],
+                ]
+            ),
         )
 
     def __str__(self) -> str:
         return f'{self.left_top}-{self.right_top}-{self.right_bottom}-{self.left_bottom}'
 
-# MARK: correction data model
 
+# MARK: correction data model
 class CorrectionDataModel(BaseModel):
-    base_frame_pos: int|None = None
-    sample_frame_pos: int|None = None
+    base_frame_pos: int | None = None
+    sample_frame_pos: int | None = None
     select_sample_frame: bool = False
     use_deshake_correction: bool = True
     use_rotation_correction: bool = True
@@ -293,13 +316,13 @@ class CorrectionDataModel(BaseModel):
     use_nega: bool = False
     use_grid: bool = False
     shaking_detection_fields: list[Rect] = []
-    extra_shaking_detection_fields: list[list[Rect]]|None = None
-    extra_deshaking_sample_frame_pos: dict[int, int]|None = None
-    rotation_angle: float|None = None
+    extra_shaking_detection_fields: list[list[Rect]] | None = None
+    extra_deshaking_sample_frame_pos: dict[int, int] | None = None
+    rotation_angle: float | None = None
     perspective_points: PerspectivePoints = PerspectivePoints()
     clip: Rect = Rect()
 
-    def get_shaking_detection_fields_index(self, sample_frame_pos: int|None = None):
+    def get_shaking_detection_fields_index(self, sample_frame_pos: int | None = None):
         if sample_frame_pos is None:
             sample_frame_pos = self.sample_frame_pos
         if sample_frame_pos is None or not self.extra_deshaking_sample_frame_pos:
@@ -312,7 +335,7 @@ class CorrectionDataModel(BaseModel):
                 return self.extra_deshaking_sample_frame_pos[pos]
         return -1
 
-    def get_shaking_detection_fields(self, sample_frame_pos: int|None = None):
+    def get_shaking_detection_fields(self, sample_frame_pos: int | None = None):
         index = self.get_shaking_detection_fields_index(sample_frame_pos)
         if index < 0:
             return self.shaking_detection_fields
@@ -334,7 +357,7 @@ class CorrectionDataModel(BaseModel):
         self.rotation_angle = None
         self.perspective_points.clear()
         self.clip.clear()
-    
+
     def copy_from(self, other: 'CorrectionDataModel'):
         self.base_frame_pos = other.base_frame_pos
         self.sample_frame_pos = other.sample_frame_pos

@@ -3,7 +3,14 @@ import wx.adv
 import numpy as np
 import cv2
 import time
-from .common import CorrectionDataModel, make_file_picker_ctrl, IMAGE_CATALOG_FILE_WILDCARD, get_path, path_exists, get_spin_ctrl_value
+from .common import (
+    CorrectionDataModel,
+    make_file_picker_ctrl,
+    IMAGE_CATALOG_FILE_WILDCARD,
+    get_path,
+    path_exists,
+    get_spin_ctrl_value,
+)
 from .tool_frame import ToolFrame
 from .components.video_thumbnail import VideoThumbnail, EVT_VIDEO_LOADED, EVT_VIDEO_POSITION_CHANGED
 from .components.base_image_viewer import BaseImageViewer, EVT_FIELD_ADDED, EVT_FIELD_DELETED
@@ -20,10 +27,10 @@ CORR_SUFFIX = '_CORR'
 PNG_SUFFIX = '_PNG'
 TIFF_SUFFIX = '_TIFF'
 
-# MARK: main window
 
+# MARK: main window
 class MainFrame(ToolFrame):
-    def __init__(self, parent: wx.Window|None = None, *args, **kw):
+    def __init__(self, parent: wx.Window | None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.model = CorrectionDataModel()
         self.deshaking_correction = DeshakingCorrection()
@@ -41,17 +48,19 @@ class MainFrame(ToolFrame):
         input_file_panel = wx.Panel(panel)
         input_file_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         input_file_sizer.AddGrowableCol(1)
-        input_file_sizer.Add(wx.StaticText(input_file_panel, label='連続画像のカタログファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        input_file_sizer.Add(
+            wx.StaticText(input_file_panel, label='連続画像のカタログファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.input_file_picker = make_file_picker_ctrl(
             input_file_panel,
             message='連続画像のカタログファイルを選択してください。',
             wildcard=IMAGE_CATALOG_FILE_WILDCARD,
-            style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
+            style=wx.FLP_OPEN | wx.FLP_USE_TEXTCTRL | wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
         input_file_sizer.Add(self.input_file_picker, flag=wx.EXPAND)
         input_file_panel.SetSizerAndFit(input_file_sizer)
-        sizer.Add(input_file_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(input_file_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # input video thumbnail panel
@@ -64,20 +73,22 @@ class MainFrame(ToolFrame):
         input_frame_sizer.AddGrowableCol(1)
         input_frame_sizer.AddGrowableCol(2)
         input_frame_sizer.AddSpacer(MARGIN)
-        self.base_frame_button = wx.RadioButton(input_frame_panel, label='ブレ補正の基準画像を選択する', style=wx.RB_GROUP)
+        self.base_frame_button = wx.RadioButton(
+            input_frame_panel, label='ブレ補正の基準画像を選択する', style=wx.RB_GROUP
+        )
         self.base_frame_button.SetValue(True)
         input_frame_sizer.Add(self.base_frame_button, flag=wx.EXPAND)
         self.sample_frame_button = wx.RadioButton(input_frame_panel, label='補正対象のサンプル画像を選択する')
         input_frame_sizer.Add(self.sample_frame_button, flag=wx.EXPAND)
         input_frame_sizer.AddSpacer(MARGIN)
         input_frame_panel.SetSizerAndFit(input_frame_sizer)
-        input_video_sizer.Add(input_frame_panel, flag=wx.EXPAND|wx.BOTTOM, border=4)
+        input_video_sizer.Add(input_frame_panel, flag=wx.EXPAND | wx.BOTTOM, border=4)
 
         self.input_video_thumbnail = VideoThumbnail(input_video_panel, use_x_arrow=True)
         input_video_sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND)
 
         input_video_panel.SetSizerAndFit(input_video_sizer)
-        sizer.Add(input_video_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(input_video_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # viewer panel
@@ -88,7 +99,7 @@ class MainFrame(ToolFrame):
 
         # console panel
         console_panel = self.__make_console_panel(panel)
-        sizer.Add(console_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(console_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # use correction panel
@@ -97,67 +108,75 @@ class MainFrame(ToolFrame):
         self.use_deshake_correction_button = wx.CheckBox(use_correction_panel, label='ブレ補正を行う')
         self.use_deshake_correction_button.SetValue(self.model.use_deshake_correction)
         self.use_deshake_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_deshake_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(
+            self.use_deshake_correction_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN
+        )
         self.use_overlay_button = wx.CheckBox(use_correction_panel, label='基準画像を重ねて表示する')
         self.use_overlay_button.SetValue(self.model.use_overlay)
         self.use_overlay_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_overlay_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(self.use_overlay_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN)
         self.use_nega_button = wx.CheckBox(use_correction_panel, label='ネガで重ねる')
         self.use_nega_button.SetValue(self.model.use_nega)
         self.use_nega_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_nega_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(self.use_nega_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN)
         self.use_rotation_correction_button = wx.CheckBox(use_correction_panel, label='画像の傾き補正(角度):')
         self.use_rotation_correction_button.SetValue(self.model.use_rotation_correction)
         self.use_rotation_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
         user_correction_sizer.Add(self.use_rotation_correction_button, flag=wx.ALIGN_CENTER_VERTICAL)
-        self.rotation = wx.SpinCtrlDouble(use_correction_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        self.rotation = wx.SpinCtrlDouble(
+            use_correction_panel, value='0.00', min=-180.0, max=180.0, inc=0.01, style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT
+        )
         self.rotation.Bind(wx.EVT_TEXT, self.__on_input_value_changed)
         self.rotation.Bind(wx.EVT_SPINCTRLDOUBLE, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.rotation, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(self.rotation, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN)
         self.use_perspective_correction_button = wx.CheckBox(use_correction_panel, label='歪み補正(射影変換)を行う')
         self.use_perspective_correction_button.SetValue(self.model.use_perspective_correction)
         self.use_perspective_correction_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_perspective_correction_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(
+            self.use_perspective_correction_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN
+        )
         self.use_grid_button = wx.CheckBox(use_correction_panel, label='グリッドを表示する')
         self.use_grid_button.SetValue(self.model.use_grid)
         self.use_grid_button.Bind(wx.EVT_CHECKBOX, self.__on_input_value_changed)
-        user_correction_sizer.Add(self.use_grid_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.RIGHT, border=MARGIN)
+        user_correction_sizer.Add(self.use_grid_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=MARGIN)
         use_correction_panel.SetSizerAndFit(user_correction_sizer)
-        sizer.Add(use_correction_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(use_correction_panel, flag=wx.ALIGN_CENTER | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # save button
         save_button = wx.Button(panel, label='補正後の連続画像とカタログファイルを作成する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(save_button, flag=wx.ALIGN_CENTER | wx.BOTTOM, border=MARGIN)
 
-        # output video thumbnail 
+        # output video thumbnail
         output_video_panel = wx.Panel(panel)
         output_video_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         output_video_sizer.AddGrowableCol(0)
         self.output_video_thumbnail = VideoThumbnail(output_video_panel)
         output_video_sizer.Add(self.output_video_thumbnail, flag=wx.EXPAND)
         output_video_panel.SetSizerAndFit(output_video_sizer)
-        sizer.Add(output_video_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(output_video_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # output file panel
         output_file_panel = wx.Panel(panel)
         output_file_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
         output_file_sizer.AddGrowableCol(1)
-        output_file_sizer.Add(wx.StaticText(output_file_panel, label='出力した連続画像のカタログファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_sizer.Add(
+            wx.StaticText(output_file_panel, label='出力した連続画像のカタログファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
         folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
-        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=2)
+        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=2)
         output_file_panel.SetSizerAndFit(output_file_sizer)
         sizer.Add(output_file_panel, flag=wx.EXPAND)
         row += 1
 
         panel.SetSizer(sizer)
 
-        frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=16)
+        frame_sizer.Add(panel, flag=wx.EXPAND | wx.ALL, border=16)
         self.SetSizerAndFit(frame_sizer)
 
         self.setting_changed_time = None
@@ -183,14 +202,20 @@ class MainFrame(ToolFrame):
         base_caption_panel = wx.Panel(caption_panel)
         base_caption_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(4, 0))
         base_caption_sizer.AddGrowableCol(1)
-        base_caption_sizer.Add(wx.StaticText(base_caption_panel, label='ブレ補正の基準画像とブレ測定枠の設定:'), flag=wx.ALIGN_CENTER)
+        base_caption_sizer.Add(
+            wx.StaticText(base_caption_panel, label='ブレ補正の基準画像とブレ測定枠の設定:'), flag=wx.ALIGN_CENTER
+        )
         self.shaking_detection_selector = wx.Choice(base_caption_panel)
         self.shaking_detection_selector.Bind(wx.EVT_CHOICE, self.__on_shaking_detection_selector_choice)
-        base_caption_sizer.Add(self.shaking_detection_selector, flag=wx.EXPAND|wx.ALL, border=2)
+        base_caption_sizer.Add(self.shaking_detection_selector, flag=wx.EXPAND | wx.ALL, border=2)
         base_caption_panel.SetSizerAndFit(base_caption_sizer)
         caption_sizer.Add(base_caption_panel, flag=wx.EXPAND)
-        caption_sizer.Add(wx.StaticText(caption_panel, label='ブレ補正後のサンプル画像と歪み補正の設定:'), flag=wx.ALIGN_CENTER)
-        caption_sizer.Add(wx.StaticText(caption_panel, label='画像補正後のサンプル画像と出力範囲の設定:'), flag=wx.ALIGN_CENTER)
+        caption_sizer.Add(
+            wx.StaticText(caption_panel, label='ブレ補正後のサンプル画像と歪み補正の設定:'), flag=wx.ALIGN_CENTER
+        )
+        caption_sizer.Add(
+            wx.StaticText(caption_panel, label='画像補正後のサンプル画像と出力範囲の設定:'), flag=wx.ALIGN_CENTER
+        )
         caption_panel.SetSizerAndFit(caption_sizer)
         sizer.Add(caption_panel, flag=wx.EXPAND)
         row += 1
@@ -225,8 +250,18 @@ class MainFrame(ToolFrame):
         shaking_panel = wx.Panel(panel)
         shaking_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         shaking_sizer.AddGrowableCol(0)
-        shaking_sizer.Add(wx.StaticText(shaking_panel, label='左の画像をドラッグしてブレ測定枠を追加します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
-        shaking_sizer.Add(wx.StaticText(shaking_panel, label='また、ブレ測定枠をクリックすると削除します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        shaking_sizer.Add(
+            wx.StaticText(
+                shaking_panel, label='左の画像をドラッグしてブレ測定枠を追加します。', style=wx.ST_NO_AUTORESIZE
+            ),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
+        shaking_sizer.Add(
+            wx.StaticText(
+                shaking_panel, label='また、ブレ測定枠をクリックすると削除します。', style=wx.ST_NO_AUTORESIZE
+            ),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
         shaking_panel.SetSizerAndFit(shaking_sizer)
         sizer.Add(shaking_panel, flag=wx.EXPAND)
 
@@ -234,8 +269,16 @@ class MainFrame(ToolFrame):
         correction_panel = wx.Panel(panel)
         correction_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         correction_sizer.AddGrowableCol(0)
-        correction_sizer.Add(wx.StaticText(correction_panel, label='歪み補正(射影変換)は中央の画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
-        correction_sizer.Add(wx.StaticText(correction_panel, label='水平・垂直にする四角形を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        correction_sizer.Add(
+            wx.StaticText(
+                correction_panel, label='歪み補正(射影変換)は中央の画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE
+            ),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
+        correction_sizer.Add(
+            wx.StaticText(correction_panel, label='水平・垂直にする四角形を設定します。', style=wx.ST_NO_AUTORESIZE),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
         correction_panel.SetSizerAndFit(correction_sizer)
         sizer.Add(correction_panel, flag=wx.EXPAND)
 
@@ -243,8 +286,14 @@ class MainFrame(ToolFrame):
         clip_panel = wx.Panel(panel)
         clip_sizer = wx.FlexGridSizer(cols=1, gap=wx.Size(0, 0))
         clip_sizer.AddGrowableCol(0)
-        clip_sizer.Add(wx.StaticText(clip_panel, label='右の補正後画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
-        clip_sizer.Add(wx.StaticText(clip_panel, label='画像ファイルに出力する範囲を設定します。', style=wx.ST_NO_AUTORESIZE), flag=wx.ALIGN_CENTER_HORIZONTAL)
+        clip_sizer.Add(
+            wx.StaticText(clip_panel, label='右の補正後画像の赤■を動かして', style=wx.ST_NO_AUTORESIZE),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
+        clip_sizer.Add(
+            wx.StaticText(clip_panel, label='画像ファイルに出力する範囲を設定します。', style=wx.ST_NO_AUTORESIZE),
+            flag=wx.ALIGN_CENTER_HORIZONTAL,
+        )
         clip_panel.SetSizerAndFit(clip_sizer)
         sizer.Add(clip_panel, flag=wx.EXPAND)
 
@@ -253,11 +302,15 @@ class MainFrame(ToolFrame):
 
     def __update_base_frame_pos_text(self):
         count = self.input_video_thumbnail.get_frame_count()
-        self.base_frame_button.SetLabel(f'ブレ補正の基準画像を選択する: フレーム位置 {self.model.base_frame_pos}/{count}')
+        self.base_frame_button.SetLabel(
+            f'ブレ補正の基準画像を選択する: フレーム位置 {self.model.base_frame_pos}/{count}'
+        )
 
     def __update_sample_frame_pos_text(self):
         count = self.input_video_thumbnail.get_frame_count()
-        self.sample_frame_button.SetLabel(f'補正対象のサンプル画像を選択する: フレーム位置 {self.model.sample_frame_pos}/{count}')
+        self.sample_frame_button.SetLabel(
+            f'補正対象のサンプル画像を選択する: フレーム位置 {self.model.sample_frame_pos}/{count}'
+        )
 
     def __set_base_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
@@ -275,11 +328,15 @@ class MainFrame(ToolFrame):
 
     def __set_sample_image_viewer(self):
         image_catalog = self.input_video_thumbnail.get_image_catalog()
-        if not image_catalog or self.model.sample_frame_pos is None or self.model.sample_frame_pos >= len(image_catalog):
+        if (
+            not image_catalog
+            or self.model.sample_frame_pos is None
+            or self.model.sample_frame_pos >= len(image_catalog)
+        ):
             self.deshaking_image_viewer.clear()
             self.clip_image_viewer.clear()
             return
-        
+
         # deshaking image
         frame = cv2.imread(str(image_catalog[self.model.sample_frame_pos]), cv2.IMREAD_UNCHANGED)
         if frame is None:
@@ -293,13 +350,17 @@ class MainFrame(ToolFrame):
         fields = self.model.get_shaking_detection_fields() if self.model.use_deshake_correction else []
         angle = self.model.rotation_angle if self.model.use_rotation_correction else 0.0
         mat = self.deshaking_correction.compute(fields, angle)
-        frame = (self.sample_frame // 256).astype(np.uint8) if self.sample_frame.dtype == np.uint16 else self.sample_frame
+        frame = (
+            (self.sample_frame // 256).astype(np.uint8) if self.sample_frame.dtype == np.uint16 else self.sample_frame
+        )
         deshaked_frame = cv2.warpPerspective(frame, mat, (frame.shape[1], frame.shape[0]), flags=cv2.INTER_AREA)
         if self.model.use_overlay:
-            base_frame = (self.base_frame // 256).astype(np.uint8) if self.base_frame.dtype == np.uint16 else self.base_frame
+            base_frame = (
+                (self.base_frame // 256).astype(np.uint8) if self.base_frame.dtype == np.uint16 else self.base_frame
+            )
             if angle:
                 h, w = base_frame.shape[:2]
-                mat_r = cv2.getRotationMatrix2D((w/2, h/2), angle, 1.0)
+                mat_r = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
                 base_frame = cv2.warpAffine(base_frame, mat_r, (w, h), flags=cv2.INTER_AREA)
             if self.model.use_nega:
                 deshaked_frame = deshaked_frame // 2 + (255 - base_frame) // 2
@@ -334,12 +395,14 @@ class MainFrame(ToolFrame):
         self.model.use_grid = self.use_grid_button.GetValue()
         self.model.rotation_angle = get_spin_ctrl_value(self.rotation)
 
-    def __reset_shaking_detection_selector(self, index: int|None = None):
+    def __reset_shaking_detection_selector(self, index: int | None = None):
         selected_index = index if index is not None else self.shaking_detection_selector.GetSelection()
         self.shaking_detection_selector.Clear()
         items = ['デフォルトのブレ測定枠パターン']
         if self.model.extra_shaking_detection_fields is not None:
-            items.extend([f'ブレ測定枠パターン - {i + 1}' for i in range(len(self.model.extra_shaking_detection_fields))])
+            items.extend(
+                [f'ブレ測定枠パターン - {i + 1}' for i in range(len(self.model.extra_shaking_detection_fields))]
+            )
         items.append('新規のブレ測定枠パターンを追加する')
         self.shaking_detection_selector.AppendItems(items)
         if selected_index >= 0 and selected_index < len(items) - 1:
@@ -371,10 +434,12 @@ class MainFrame(ToolFrame):
         path = self.__make_setting_file_path()
         if not path_exists(path):
             return
-        def _g(value, default_value):
+
+        def _g(value):
             if type(value) is float:
                 return f'{value:.2f}'
             return value
+
         try:
             with open(path, 'r') as f:
                 model = CorrectionDataModel.model_validate_json(f.read())
@@ -385,7 +450,7 @@ class MainFrame(ToolFrame):
                 self.use_overlay_button.SetValue(self.model.use_overlay)
                 self.use_nega_button.SetValue(self.model.use_nega)
                 self.use_grid_button.SetValue(self.model.use_grid)
-                self.rotation.SetValue(_g(self.model.rotation_angle, '0.00'))
+                self.rotation.SetValue(_g(self.model.rotation_angle))
                 if self.model.select_sample_frame:
                     self.sample_frame_button.SetValue(True)
                 else:
@@ -394,7 +459,7 @@ class MainFrame(ToolFrame):
                 self.__reset_shaking_detection_selector()
                 self.base_image_viewer.set_fields(self.model.shaking_detection_fields)
         except Exception as e:
-            wx.MessageBox(f'設定の読み込みに失敗しました:\n{e}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
+            wx.MessageBox(f'設定の読み込みに失敗しました:\n{e}', TOOL_NAME, wx.OK | wx.ICON_ERROR)
 
     def __load_image_catalog(self):
         path = get_path(self.input_file_picker.GetPath())
@@ -550,7 +615,7 @@ class MainFrame(ToolFrame):
 
     def __on_save_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
-            wx.MessageBox('連続画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            wx.MessageBox('連続画像が読み込まれていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
 
@@ -558,12 +623,13 @@ class MainFrame(ToolFrame):
         output_filename = input_path.stem.removesuffix(PNG_SUFFIX).removesuffix(TIFF_SUFFIX) + CORR_SUFFIX + '.txt'
 
         with wx.FileDialog(
-            self, 
-            '保存先の連続画像のカタログファイル名を入力してください。(連続画像のフォルダー名にもなります)', 
+            self,
+            '保存先の連続画像のカタログファイル名を入力してください。(連続画像のフォルダー名にもなります)',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
             wildcard=IMAGE_CATALOG_FILE_WILDCARD,
-            style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             self.__save_setting()

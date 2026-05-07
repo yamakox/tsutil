@@ -11,23 +11,26 @@ DRAGGING_RECT = 101
 myEVT_FIELD_ADDED = wx.NewEventType()
 EVT_FIELD_ADDED = wx.PyEventBinder(myEVT_FIELD_ADDED)
 
+
 class FieldAddedEvent(wx.ThreadEvent):
     def __init__(self, field: Rect):
         super().__init__(myEVT_FIELD_ADDED)
         self.field = field
 
+
 myEVT_FIELD_DELETED = wx.NewEventType()
 EVT_FIELD_DELETED = wx.PyEventBinder(myEVT_FIELD_DELETED)
+
 
 class FieldDeletedEvent(wx.ThreadEvent):
     def __init__(self, field: Rect):
         super().__init__(myEVT_FIELD_DELETED)
         self.field = field
 
-# MARK: main class
 
+# MARK: main class
 class BaseImageViewer(ImageViewer):
-    def __init__(self, parent, field_visible: bool=True, field_add_mode: bool=False, *args, **kwargs):
+    def __init__(self, parent, field_visible: bool = True, field_add_mode: bool = False, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.fields = []
         self.field_visible = field_visible
@@ -41,7 +44,7 @@ class BaseImageViewer(ImageViewer):
     def set_field_add_mode(self, mode):
         self.field_add_mode = mode
 
-    def set_field_visible(self, field_visible: bool=True):
+    def set_field_visible(self, field_visible: bool = True):
         self.field_visible = field_visible
         self.Refresh()
 
@@ -100,9 +103,15 @@ class BaseImageViewer(ImageViewer):
             sz = self.dragging_rect.get_size()
             if abs(sz[0]) >= 8 and abs(sz[1]) >= 8:
                 if self.dragging_rect.right < self.dragging_rect.left:
-                    self.dragging_rect.left, self.dragging_rect.right = self.dragging_rect.right, self.dragging_rect.left
+                    self.dragging_rect.left, self.dragging_rect.right = (
+                        self.dragging_rect.right,
+                        self.dragging_rect.left,
+                    )
                 if self.dragging_rect.bottom < self.dragging_rect.top:
-                    self.dragging_rect.top, self.dragging_rect.bottom = self.dragging_rect.bottom, self.dragging_rect.top
+                    self.dragging_rect.top, self.dragging_rect.bottom = (
+                        self.dragging_rect.bottom,
+                        self.dragging_rect.top,
+                    )
                 wx.QueueEvent(self, FieldAddedEvent(self.dragging_rect))
             release_mouse(self)
             self.dragging = DRAGGING_NONE
@@ -118,8 +127,8 @@ class BaseImageViewer(ImageViewer):
             x = min(max(self.regions['preview'].GetLeft(), event.GetX()), self.regions['preview'].GetRight())
             y = min(max(self.regions['preview'].GetTop(), event.GetY()), self.regions['preview'].GetBottom())
             ix, iy = self.get_image_precise_position(mouse_pos=(x, y))
-            ix = min(max(0, int(ix + .5)), self.image.shape[1])
-            iy = min(max(0, int(iy + .5)), self.image.shape[0])
+            ix = min(max(0, int(ix + 0.5)), self.image.shape[1])
+            iy = min(max(0, int(iy + 0.5)), self.image.shape[0])
             self.dragging_rect.right = ix
             self.dragging_rect.bottom = iy
             self.Refresh()

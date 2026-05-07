@@ -13,10 +13,10 @@ MARGIN = 16
 TOOL_NAME = '動画のトリミング'
 RAW_SUFFIX = '_RAW'
 
-# MARK: main window
 
+# MARK: main window
 class MainFrame(ToolFrame):
-    def __init__(self, parent: wx.Window|None = None, *args, **kw):
+    def __init__(self, parent: wx.Window | None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.enable_save_menu(False)
 
@@ -29,51 +29,63 @@ class MainFrame(ToolFrame):
         input_file_panel = wx.Panel(panel)
         input_file_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         input_file_sizer.AddGrowableCol(1)
-        input_file_sizer.Add(wx.StaticText(input_file_panel, label='トリミングする動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        input_file_sizer.Add(
+            wx.StaticText(input_file_panel, label='トリミングする動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.input_file_picker = make_file_picker_ctrl(
             input_file_panel,
             message='動画ファイルを選択してください。',
             wildcard=MOVIE_FILE_WILDCARD,
-            style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
+            style=wx.FLP_OPEN | wx.FLP_USE_TEXTCTRL | wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
         input_file_sizer.Add(self.input_file_picker, flag=wx.EXPAND)
         input_file_panel.SetSizerAndFit(input_file_sizer)
-        sizer.Add(input_file_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(input_file_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
 
-        # input video thumbnail 
-        sizer.Add(wx.StaticText(panel, label='赤いバーをドラッグして、動画の開始位置と終了位置を指定してください。'), flag=wx.ALIGN_CENTER)
+        # input video thumbnail
+        sizer.Add(
+            wx.StaticText(panel, label='赤いバーをドラッグして、動画の開始位置と終了位置を指定してください。'),
+            flag=wx.ALIGN_CENTER,
+        )
         self.input_video_thumbnail = VideoThumbnail(panel, use_range_bar=True)
-        sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(self.input_video_thumbnail, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         self.preview_video_thumbnail = VideoThumbnail(panel)
         sizer.Add(self.preview_video_thumbnail, flag=wx.EXPAND)
 
         # trimming button
         trimming_button = wx.Button(panel, label='トリミングした動画ファイルを作成する...')
         trimming_button.Bind(wx.EVT_BUTTON, self.__on_trimming_button_clicked)
-        sizer.Add(trimming_button, flag=wx.ALIGN_CENTER|wx.ALL, border=MARGIN)
+        sizer.Add(trimming_button, flag=wx.ALIGN_CENTER | wx.ALL, border=MARGIN)
 
         # output video thumbnail
         self.output_video_thumbnail = VideoThumbnail(panel)
         sizer.Add(self.output_video_thumbnail, flag=wx.EXPAND)
-        sizer.Add(wx.StaticText(panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。こちらで目視確認してください。'), flag=wx.ALIGN_CENTER)
+        sizer.Add(
+            wx.StaticText(
+                panel, label='※ffmpegによるトリミングの結果には多少の誤差が生じます。こちらで目視確認してください。'
+            ),
+            flag=wx.ALIGN_CENTER,
+        )
 
         # output file panel
         output_file_panel = wx.Panel(panel)
         output_file_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
         output_file_sizer.AddGrowableCol(1)
-        output_file_sizer.Add(wx.StaticText(output_file_panel, label='トリミングした動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_sizer.Add(
+            wx.StaticText(output_file_panel, label='トリミングした動画ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
         folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
         output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL)
         output_file_panel.SetSizerAndFit(output_file_sizer)
-        sizer.Add(output_file_panel, flag=wx.EXPAND|wx.TOP, border=MARGIN)
+        sizer.Add(output_file_panel, flag=wx.EXPAND | wx.TOP, border=MARGIN)
 
         panel.SetSizer(sizer)
 
-        frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=16)
+        frame_sizer.Add(panel, flag=wx.EXPAND | wx.ALL, border=16)
         self.SetSizerAndFit(frame_sizer)
 
         self.input_video_thumbnail.Bind(EVT_VIDEO_RANGE_CHANGED, self.__on_video_range_changed)
@@ -91,12 +103,12 @@ class MainFrame(ToolFrame):
         event.Skip()
 
     def __on_video_range_changed(self, event):
-        self.preview_video_thumbnail.copy_frames(event.frames[event.start:event.end])
+        self.preview_video_thumbnail.copy_frames(event.frames[event.start : event.end])
         event.Skip()
 
     def __on_trimming_button_clicked(self, event):
         if self.input_video_thumbnail.get_frame_count() == 0:
-            wx.MessageBox('トリミングする動画が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            wx.MessageBox('トリミングする動画が読み込まれていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
 
@@ -104,12 +116,13 @@ class MainFrame(ToolFrame):
         output_filename = input_path.stem + RAW_SUFFIX + input_path.suffix
 
         with wx.FileDialog(
-            self, 
-            'トリミングした動画の保存先ファイル名を入力してください。', 
+            self,
+            'トリミングした動画の保存先ファイル名を入力してください。',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
             wildcard=MOVIE_FILE_WILDCARD,
-            style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             output_path = get_path(fileDialog.GetPath())
@@ -122,12 +135,26 @@ class MainFrame(ToolFrame):
             # to = (end - 1) / probe.fps
             ss = probe.duration * start / total_count
             to = probe.duration * (end - 1) / total_count
-            args = ['ffmpeg', '-loglevel', 'error', '-ss', str(ss), '-to', str(to), '-i', str(input_path), '-c', 'copy', '-y', str(output_path)]
+            args = [
+                'ffmpeg',
+                '-loglevel',
+                'error',
+                '-ss',
+                str(ss),
+                '-to',
+                str(to),
+                '-i',
+                str(input_path),
+                '-c',
+                'copy',
+                '-y',
+                str(output_path),
+            ]
             logger.debug(args)
             process = Popen(args, stdout=PIPE, stderr=PIPE, encoding='utf-8')
             stdout_data, stderr_data = process.communicate()
             if process.returncode != 0:
-                wx.MessageBox(f'トリミングに失敗しました:\n{stderr_data}', TOOL_NAME, wx.OK|wx.ICON_ERROR)
+                wx.MessageBox(f'トリミングに失敗しました:\n{stderr_data}', TOOL_NAME, wx.OK | wx.ICON_ERROR)
                 event.Skip()
                 return
             m_time = input_path.stat().st_mtime

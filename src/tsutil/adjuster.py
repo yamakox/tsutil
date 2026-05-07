@@ -4,7 +4,16 @@ from pydantic import BaseModel
 import cv2
 import numpy as np
 from PIL import Image
-from .common import logger, make_file_picker_ctrl, IMAGE_FILE_WILDCARD, dpi_aware_size, dpi_aware, get_spin_ctrl_value, get_path, path_exists
+from .common import (
+    logger,
+    make_file_picker_ctrl,
+    IMAGE_FILE_WILDCARD,
+    dpi_aware_size,
+    dpi_aware,
+    get_spin_ctrl_value,
+    get_path,
+    path_exists,
+)
 from .tool_frame import ToolFrame
 from .components.image_viewer import ImageViewer, SCROLL_BAR_SIZE, EVT_MOUSE_OVER_IMAGE, EVT_MOUSE_CLICK_IMAGE
 from .functions import unsharp_mask
@@ -24,171 +33,175 @@ ID_Y_BOTTOM = 30002
 ID_POSITION_LIST = 30003
 DEFAULT_PREVIEW_MESSAGE = '屋根Y・足元Y・列車の調整位置を選択して画像の該当場所をクリックすると座標が入力されます。'
 
+
 class Position(BaseModel):
     length: int = 0
     description: str = '車両の位置'
     coupler: bool = True
+
 
 class MeasurementData(BaseModel):
     height: int = 0
     factor: float = 1.00
     positions: list[Position] = []
 
+
 def M(height: int, factor: float, positions: list[tuple[int, str]]):
     return MeasurementData(
-        height=height, 
-        factor=factor, 
-        positions=[Position(length=i[0], description=i[1], coupler=i[2]) for i in positions], 
+        height=height,
+        factor=factor,
+        positions=[Position(length=i[0], description=i[1], coupler=i[2]) for i in positions],
     )
+
 
 MEASUREMENT_DATASET = {
     '700系E編成': M(
-        height=3650, 
-        factor=0.97, 
+        height=3650,
+        factor=0.97,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (9200, '1両目のノーズ終端', False), 
-            (27350-9200, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (25000, '6両目と7両目の間', True), 
-            (25000, '7両目と8両目の間', True), 
-            (27350-9200, '8両目のノーズ終端', False),
-            (9200, '8両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (9200, '1両目のノーズ終端', False),
+            (27350 - 9200, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (25000, '6両目と7両目の間', True),
+            (25000, '7両目と8両目の間', True),
+            (27350 - 9200, '8両目のノーズ終端', False),
+            (9200, '8両目のノーズ先端', False),
+        ],
+    ),
     'ドクターイエロー': M(
-        height=3650, 
-        factor=0.97, 
+        height=3650,
+        factor=0.97,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (9200, '1両目のノーズ終端', False), 
-            (27350-9200, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (25000, '6両目と7両目の間', True), 
-            (27350-9200, '7両目のノーズ終端', False),
-            (9200, '7両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (9200, '1両目のノーズ終端', False),
+            (27350 - 9200, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (25000, '6両目と7両目の間', True),
+            (27350 - 9200, '7両目のノーズ終端', False),
+            (9200, '7両目のノーズ先端', False),
+        ],
+    ),
     'N700A・N700S': M(
-        height=3600, 
-        factor=0.97, 
+        height=3600,
+        factor=0.97,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (10700, '1両目のノーズ終端', False), 
-            (27350-10700, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (25000, '6両目と7両目の間', True), 
-            (25000, '7両目と8両目の間', True), 
-            (25000, '8両目と9両目の間', True), 
-            (25000, '9両目と10両目の間', True), 
-            (25000, '10両目と11両目の間', True), 
-            (25000, '11両目と12両目の間', True), 
-            (25000, '12両目と13両目の間', True), 
-            (25000, '13両目と14両目の間', True), 
-            (25000, '14両目と15両目の間', True), 
-            (25000, '15両目と16両目の間', True), 
-            (27350-10700, '16両目のノーズ終端', False),
-            (10700, '16両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (10700, '1両目のノーズ終端', False),
+            (27350 - 10700, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (25000, '6両目と7両目の間', True),
+            (25000, '7両目と8両目の間', True),
+            (25000, '8両目と9両目の間', True),
+            (25000, '9両目と10両目の間', True),
+            (25000, '10両目と11両目の間', True),
+            (25000, '11両目と12両目の間', True),
+            (25000, '12両目と13両目の間', True),
+            (25000, '13両目と14両目の間', True),
+            (25000, '14両目と15両目の間', True),
+            (25000, '15両目と16両目の間', True),
+            (27350 - 10700, '16両目のノーズ終端', False),
+            (10700, '16両目のノーズ先端', False),
+        ],
+    ),
     '500系': M(
-        height=3690, 
-        factor=0.97, 
+        height=3690,
+        factor=0.97,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (15000, '1両目のノーズ終端', False), 
-            (27000-15000, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (25000, '6両目と7両目の間', True), 
-            (25000, '7両目と8両目の間', True), 
-            (27000-15000, '8両目のノーズ終端', False),
-            (15000, '8両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (15000, '1両目のノーズ終端', False),
+            (27000 - 15000, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (25000, '6両目と7両目の間', True),
+            (25000, '7両目と8両目の間', True),
+            (27000 - 15000, '8両目のノーズ終端', False),
+            (15000, '8両目のノーズ先端', False),
+        ],
+    ),
     '800系': M(
-        height=3650, 
-        factor=0.97, 
+        height=3650,
+        factor=0.97,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (9500, '1両目のノーズ終端', False), 
-            (27350-9500, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (27350-9500, '6両目のノーズ終端', False),
-            (9500, '6両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (9500, '1両目のノーズ終端', False),
+            (27350 - 9500, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (27350 - 9500, '6両目のノーズ終端', False),
+            (9500, '6両目のノーズ先端', False),
+        ],
+    ),
     'E7/W7系': M(
-        height=3650, 
-        factor=1.00, 
+        height=3650,
+        factor=1.00,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (9100, '1両目のノーズ終端', False), 
-            (26000-9100, '1両目と2両目の間', True), 
-            (25000, '2両目と3両目の間', True), 
-            (25000, '3両目と4両目の間', True), 
-            (25000, '4両目と5両目の間', True), 
-            (25000, '5両目と6両目の間', True), 
-            (25000, '6両目と7両目の間', True), 
-            (25000, '7両目と8両目の間', True), 
-            (25000, '8両目と9両目の間', True), 
-            (25000, '9両目と10両目の間', True), 
-            (25000, '10両目と11両目の間', True), 
-            (25000, '11両目と12両目の間', True), 
-            (26000-9100, '12両目のノーズ終端', False),
-            (9100, '12両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (9100, '1両目のノーズ終端', False),
+            (26000 - 9100, '1両目と2両目の間', True),
+            (25000, '2両目と3両目の間', True),
+            (25000, '3両目と4両目の間', True),
+            (25000, '4両目と5両目の間', True),
+            (25000, '5両目と6両目の間', True),
+            (25000, '6両目と7両目の間', True),
+            (25000, '7両目と8両目の間', True),
+            (25000, '8両目と9両目の間', True),
+            (25000, '9両目と10両目の間', True),
+            (25000, '10両目と11両目の間', True),
+            (25000, '11両目と12両目の間', True),
+            (26000 - 9100, '12両目のノーズ終端', False),
+            (9100, '12両目のノーズ先端', False),
+        ],
+    ),
     'E3系': M(
-        height=4080, 
-        factor=1.00, 
+        height=4080,
+        factor=1.00,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (6000, '1両目のノーズ終端', False), 
-            (23075-6000, '1両目と2両目の間', True), 
-            (20500, '2両目と3両目の間', True), 
-            (20500, '3両目と4両目の間', True), 
-            (20500, '4両目と5両目の間', True), 
-            (20500, '5両目と6両目の間', True), 
-            (23075-6000, '6両目のノーズ終端', False),
-            (6000, '6両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (6000, '1両目のノーズ終端', False),
+            (23075 - 6000, '1両目と2両目の間', True),
+            (20500, '2両目と3両目の間', True),
+            (20500, '3両目と4両目の間', True),
+            (20500, '4両目と5両目の間', True),
+            (20500, '5両目と6両目の間', True),
+            (23075 - 6000, '6両目のノーズ終端', False),
+            (6000, '6両目のノーズ先端', False),
+        ],
+    ),
     'East-i E926形': M(
-        height=4080, 
-        factor=1.00, 
+        height=4080,
+        factor=1.00,
         positions=[
-            (0, '1両目のノーズ先端', False), 
-            (6000, '1両目のノーズ終端', False), 
-            (22725-6000, '1両目と2両目の間', True), 
-            (20500, '2両目と3両目の間', True), 
-            (20500, '3両目と4両目の間', True), 
-            (20500, '4両目と5両目の間', True), 
-            (20500, '5両目と6両目の間', True), 
-            (22725-6000, '6両目のノーズ終端', False),
-            (6000, '6両目のノーズ先端', False), 
-        ]
-    ), 
+            (0, '1両目のノーズ先端', False),
+            (6000, '1両目のノーズ終端', False),
+            (22725 - 6000, '1両目と2両目の間', True),
+            (20500, '2両目と3両目の間', True),
+            (20500, '3両目と4両目の間', True),
+            (20500, '4両目と5両目の間', True),
+            (20500, '5両目と6両目の間', True),
+            (22725 - 6000, '6両目のノーズ終端', False),
+            (6000, '6両目のノーズ先端', False),
+        ],
+    ),
 }
 
-# MARK: main window
 
+# MARK: main window
 class MainFrame(ToolFrame):
-    def __init__(self, parent: wx.Window|None = None, *args, **kw):
+    def __init__(self, parent: wx.Window | None = None, *args, **kw):
         super().__init__(parent, title=TOOL_NAME, *args, **kw)
         self.enable_save_menu(False)
         self.raw_image = None
@@ -208,29 +221,34 @@ class MainFrame(ToolFrame):
         input_file_panel = wx.Panel(panel)
         input_file_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         input_file_sizer.AddGrowableCol(1)
-        input_file_sizer.Add(wx.StaticText(input_file_panel, label='調整するステッチング画像ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        input_file_sizer.Add(
+            wx.StaticText(input_file_panel, label='調整するステッチング画像ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.input_file_picker = make_file_picker_ctrl(
             input_file_panel,
             message='ステッチング画像ファイルを選択してください。',
             wildcard=IMAGE_FILE_WILDCARD,
-            style=wx.FLP_OPEN|wx.FLP_USE_TEXTCTRL|wx.FLP_FILE_MUST_EXIST,
+            style=wx.FLP_OPEN | wx.FLP_USE_TEXTCTRL | wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
         input_file_sizer.Add(self.input_file_picker, flag=wx.EXPAND)
         input_file_panel.SetSizerAndFit(input_file_sizer)
-        sizer.Add(input_file_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(input_file_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # input image thumbnail
-        sizer.Add(wx.StaticText(panel, label='ステッチング画像の任意の場所をクリックすると、拡大画像が下に表示されます。'), flag=wx.ALIGN_CENTER)
+        sizer.Add(
+            wx.StaticText(panel, label='ステッチング画像の任意の場所をクリックすると、拡大画像が下に表示されます。'),
+            flag=wx.ALIGN_CENTER,
+        )
         self.input_image_thumbnail = ImageViewer(panel, min_size=THUMBNAIL_SIZE, enable_zoom=False)
         self.input_image_thumbnail.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
-        sizer.Add(self.input_image_thumbnail, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(self.input_image_thumbnail, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         row += 2
 
         # setting panel
         setting_panel = self.__make_setting_panel(panel)
-        sizer.Add(setting_panel, flag=wx.EXPAND|wx.BOTTOM, border=MARGIN)
+        sizer.Add(setting_panel, flag=wx.EXPAND | wx.BOTTOM, border=MARGIN)
         sizer.AddGrowableRow(row)
         row += 1
 
@@ -239,12 +257,12 @@ class MainFrame(ToolFrame):
         save_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(MARGIN, 0))
         save_button = wx.Button(save_panel, label='調整したステッチング画像を保存する...')
         save_button.Bind(wx.EVT_BUTTON, self.__on_save_button_clicked)
-        save_sizer.Add(save_button, flag=wx.ALIGN_CENTER|wx.ALL, border=2)
+        save_sizer.Add(save_button, flag=wx.ALIGN_CENTER | wx.ALL, border=2)
         save_split_button = wx.Button(save_panel, label='調整した画像を1両ずつ分割保存する...')
         save_split_button.Bind(wx.EVT_BUTTON, self.__on_save_split_button_clicked)
-        save_sizer.Add(save_split_button, flag=wx.ALIGN_CENTER|wx.ALL, border=2)
+        save_sizer.Add(save_split_button, flag=wx.ALIGN_CENTER | wx.ALL, border=2)
         save_panel.SetSizerAndFit(save_sizer)
-        sizer.Add(save_panel, flag=wx.ALIGN_CENTER|wx.BOTTOM, border=MARGIN)
+        sizer.Add(save_panel, flag=wx.ALIGN_CENTER | wx.BOTTOM, border=MARGIN)
         row += 1
 
         # output image thumbnail
@@ -256,19 +274,21 @@ class MainFrame(ToolFrame):
         output_file_panel = wx.Panel(panel)
         output_file_sizer = wx.FlexGridSizer(cols=3, gap=wx.Size(MARGIN, 0))
         output_file_sizer.AddGrowableCol(1)
-        output_file_sizer.Add(wx.StaticText(output_file_panel, label='調整後のステッチング画像ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL)
+        output_file_sizer.Add(
+            wx.StaticText(output_file_panel, label='調整後のステッチング画像ファイル:'), flag=wx.ALIGN_CENTER_VERTICAL
+        )
         self.output_filename_text = wx.TextCtrl(output_file_panel, value='', style=wx.TE_READONLY)
         output_file_sizer.Add(self.output_filename_text, flag=wx.EXPAND)
         folder_button = wx.Button(output_file_panel, label='フォルダーを開く')
         folder_button.Bind(wx.EVT_BUTTON, self.__on_folder_button_clicked)
-        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL|wx.ALL, border=2)
+        output_file_sizer.Add(folder_button, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=2)
         output_file_panel.SetSizerAndFit(output_file_sizer)
-        sizer.Add(output_file_panel, flag=wx.EXPAND|wx.TOP, border=MARGIN)
+        sizer.Add(output_file_panel, flag=wx.EXPAND | wx.TOP, border=MARGIN)
         row += 1
 
         panel.SetSizer(sizer)
 
-        frame_sizer.Add(panel, flag=wx.EXPAND|wx.ALL, border=16)
+        frame_sizer.Add(panel, flag=wx.EXPAND | wx.ALL, border=16)
         self.SetSizerAndFit(frame_sizer)
 
         self.input_image_thumbnail.Bind(EVT_MOUSE_CLICK_IMAGE, self.__on_mouse_click_thumbnail)
@@ -285,7 +305,12 @@ class MainFrame(ToolFrame):
 
         selector_panel = wx.Panel(setting_panel)
         selector_sizer = wx.GridSizer(rows=2, cols=1, gap=wx.Size(0, 2))
-        selector_sizer.Add(wx.StaticText(selector_panel, label='列車の種類を選択してください:', style=wx.ALIGN_LEFT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
+        selector_sizer.Add(
+            wx.StaticText(
+                selector_panel, label='列車の種類を選択してください:', style=wx.ALIGN_LEFT | wx.ST_NO_AUTORESIZE
+            ),
+            flag=wx.EXPAND,
+        )
         self.selector = wx.Choice(selector_panel)
         self.selector.Append(list(MEASUREMENT_DATASET.keys()))
         self.selector.SetSelection(wx.NOT_FOUND)
@@ -297,25 +322,69 @@ class MainFrame(ToolFrame):
 
         height_panel = wx.Panel(setting_panel)
         height_sizer = wx.GridSizer(rows=2, cols=4, gap=wx.Size(0, 4))
-        height_sizer.Add(wx.StaticText(height_panel, label='屋根Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.y_top = wx.SpinCtrl(height_panel, id=ID_Y_TOP, name='y_top', value="0", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        height_sizer.Add(
+            wx.StaticText(height_panel, label='屋根Y:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE),
+            flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.y_top = wx.SpinCtrl(
+            height_panel,
+            id=ID_Y_TOP,
+            name='y_top',
+            value='0',
+            min=0,
+            max=10000,
+            style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT,
+        )
         self.y_top.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
-        height_sizer.Add(self.y_top, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='足元Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.y_bottom = wx.SpinCtrl(height_panel, id=ID_Y_BOTTOM, name='y_bottom', value="3840", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
+        height_sizer.Add(self.y_top, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
+        height_sizer.Add(
+            wx.StaticText(height_panel, label='足元Y:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE),
+            flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.y_bottom = wx.SpinCtrl(
+            height_panel,
+            id=ID_Y_BOTTOM,
+            name='y_bottom',
+            value='3840',
+            min=0,
+            max=10000,
+            style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT,
+        )
         self.y_bottom.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
-        height_sizer.Add(self.y_bottom, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='補正係数:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.factor = wx.SpinCtrlDouble(height_panel, name='factor', value="1.00", min=0.1, max=2.0, inc=0.01, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        height_sizer.Add(self.factor, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
-        height_sizer.Add(wx.StaticText(height_panel, label='左右余白:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.space = wx.SpinCtrl(height_panel, name='space', value="100", min=0, max=10000, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        height_sizer.Add(self.space, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        height_sizer.Add(self.y_bottom, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
+        height_sizer.Add(
+            wx.StaticText(height_panel, label='補正係数:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE),
+            flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.factor = wx.SpinCtrlDouble(
+            height_panel,
+            name='factor',
+            value='1.00',
+            min=0.1,
+            max=2.0,
+            inc=0.01,
+            style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT,
+        )
+        height_sizer.Add(self.factor, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
+        height_sizer.Add(
+            wx.StaticText(height_panel, label='左右余白:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE),
+            flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.space = wx.SpinCtrl(
+            height_panel, name='space', value='100', min=0, max=10000, style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT
+        )
+        height_sizer.Add(self.space, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
         height_panel.SetSizerAndFit(height_sizer)
         setting_sizer.Add(height_panel, flag=wx.EXPAND)
         row += 1
 
-        self.position_list = wx.ListCtrl(setting_panel, id=ID_POSITION_LIST, name='position_list', size=dpi_aware_size(parent, wx.Size(*POSITION_LIST_SIZE)), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
+        self.position_list = wx.ListCtrl(
+            setting_panel,
+            id=ID_POSITION_LIST,
+            name='position_list',
+            size=dpi_aware_size(parent, wx.Size(*POSITION_LIST_SIZE)),
+            style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
+        )
         self.position_list.InsertColumn(0, '列車の調整位置', wx.LIST_FORMAT_LEFT, width=200)
         self.position_list.InsertColumn(1, 'X座標', wx.LIST_FORMAT_RIGHT, width=100)
         self.position_list.Bind(wx.EVT_SET_FOCUS, self.__on_set_focus)
@@ -328,9 +397,18 @@ class MainFrame(ToolFrame):
         option_panel = wx.Panel(setting_panel)
         option_sizer = wx.FlexGridSizer(cols=2, gap=wx.Size(0, 4))
         option_sizer.AddGrowableCol(0)
-        option_sizer.Add(wx.StaticText(option_panel, label='アンシャープマスクの適用 (0.0: 適用しない):', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-        self.unsharp_mask_parameter = wx.SpinCtrlDouble(option_panel, value="1.0", min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS|wx.ALIGN_RIGHT)
-        option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND|wx.LEFT, border=MARGIN)
+        option_sizer.Add(
+            wx.StaticText(
+                option_panel,
+                label='アンシャープマスクの適用 (0.0: 適用しない):',
+                style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE,
+            ),
+            flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.unsharp_mask_parameter = wx.SpinCtrlDouble(
+            option_panel, value='1.0', min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT
+        )
+        option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
         option_panel.SetSizerAndFit(option_sizer)
         setting_sizer.Add(option_panel, flag=wx.EXPAND)
         row += 1
@@ -361,13 +439,17 @@ class MainFrame(ToolFrame):
         info_sizer.AddGrowableCol(3, proportion=1)
         info_sizer.AddGrowableCol(4, proportion=10)
         info_sizer.AddGrowableCol(5, proportion=16)
-        info_sizer.Add(wx.StaticText(info_panel, label='X:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.info_x = wx.StaticText(info_panel, label='', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE)
-        info_sizer.Add(self.info_x, flag=wx.EXPAND|wx.LEFT, border=8)
+        info_sizer.Add(
+            wx.StaticText(info_panel, label='X:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE), flag=wx.EXPAND
+        )
+        self.info_x = wx.StaticText(info_panel, label='', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE)
+        info_sizer.Add(self.info_x, flag=wx.EXPAND | wx.LEFT, border=8)
         info_sizer.AddStretchSpacer()
-        info_sizer.Add(wx.StaticText(info_panel, label='Y:', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE), flag=wx.EXPAND)
-        self.info_y = wx.StaticText(info_panel, label='', style=wx.ALIGN_RIGHT|wx.ST_NO_AUTORESIZE)
-        info_sizer.Add(self.info_y, flag=wx.EXPAND|wx.LEFT, border=8)
+        info_sizer.Add(
+            wx.StaticText(info_panel, label='Y:', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE), flag=wx.EXPAND
+        )
+        self.info_y = wx.StaticText(info_panel, label='', style=wx.ALIGN_RIGHT | wx.ST_NO_AUTORESIZE)
+        info_sizer.Add(self.info_y, flag=wx.EXPAND | wx.LEFT, border=8)
         info_sizer.AddStretchSpacer()
         info_panel.SetSizerAndFit(info_sizer)
         preview_sizer.Add(info_panel, flag=wx.EXPAND)
@@ -409,15 +491,10 @@ class MainFrame(ToolFrame):
         if row_index is None:
             self.position_list.DeleteAllItems()
             for entry, position in zip(data.positions, self.positions):
-                self.position_list.Append([
-                    entry.description, 
-                    str(position) if position is not None else ''
-                ])
+                self.position_list.Append([entry.description, str(position) if position is not None else ''])
         else:
             self.position_list.SetItem(
-                row_index, 
-                1, 
-                str(self.positions[row_index]) if self.positions[row_index] is not None else ''
+                row_index, 1, str(self.positions[row_index]) if self.positions[row_index] is not None else ''
             )
 
     def __show_preview(self, image_x):
@@ -434,7 +511,7 @@ class MainFrame(ToolFrame):
             raise Exception('画像調整に必要なデータがありません。')
         key = self.selector.GetString(index)
         data = MEASUREMENT_DATASET[key]
-        
+
         car_height = data.height * get_spin_ctrl_value(self.factor)
         if car_height <= 0:
             raise Exception('補正係数が正しくありません。')
@@ -446,7 +523,7 @@ class MainFrame(ToolFrame):
             raise Exception('屋根のY座標が足元のY座標より下にあります。')
         h, w = self.raw_image.shape[:2]
         dst_height = h
-        dst_widths = (car_widths * (y_src_bottom - y_src_top) / car_height + .5).astype(int)
+        dst_widths = (car_widths * (y_src_bottom - y_src_top) / car_height + 0.5).astype(int)
         dst_width = dst_widths.sum()
         src_widths = np.array([x2 - x1 for (x1, x2) in zip(self.positions[:-1], self.positions[1:])])
         if min(src_widths) <= 0:
@@ -456,7 +533,7 @@ class MainFrame(ToolFrame):
             # 補正後の幅が元画像より大きいと拡大してしまうため、高さを縮めて拡大しないようにする
             dst_height = int(h / max_ratio) & ~1
             img = cv2.resize(self.raw_image, (self.raw_image.shape[1], dst_height), interpolation=cv2.INTER_AREA)
-            dst_widths = (dst_widths / max_ratio + .5).astype(int)
+            dst_widths = (dst_widths / max_ratio + 0.5).astype(int)
             dst_width = dst_widths.sum()
         else:
             img = self.raw_image
@@ -469,20 +546,18 @@ class MainFrame(ToolFrame):
         if self.positions[0] < margin or img.shape[1] - self.positions[-1] < margin:
             max_space = min(self.positions[0], img.shape[1] - self.positions[-1])
             raise Exception(f'余白を{max_space}以下にしてください。')
-        pos =[0]
-        buf[:, :margin, :] = img[:, self.positions[0]-margin:self.positions[0], :]
+        pos = [0]
+        buf[:, :margin, :] = img[:, self.positions[0] - margin : self.positions[0], :]
         x = margin
         for i, dw in enumerate(dst_widths):
             x1 = x + dw
             buf[:, x:x1, :] = cv2.resize(
-                img[:, self.positions[i]:self.positions[i+1], :], 
-                (dw, dst_height), 
-                interpolation=cv2.INTER_AREA
+                img[:, self.positions[i] : self.positions[i + 1], :], (dw, dst_height), interpolation=cv2.INTER_AREA
             )
             if data.positions[i + 1].coupler:
                 pos.append(x1)
             x = x1
-        buf[:, x:, :] = img[:, self.positions[-1]:self.positions[-1]+margin, :]
+        buf[:, x:, :] = img[:, self.positions[-1] : self.positions[-1] + margin, :]
         pos.append(dst_width)
         unsharp_mask_parameter = get_spin_ctrl_value(self.unsharp_mask_parameter)
         if unsharp_mask_parameter > 0.0:
@@ -495,18 +570,22 @@ class MainFrame(ToolFrame):
             event.Skip()
             return
         self.__clear()
-        #self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        # self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         self.raw_image = np.asarray(Image.open(path))
         self.thumb_ratio = dpi_aware(self, THUMBNAIL_HEIGHT) / self.raw_image.shape[0]
-        self.thumb_image = cv2.resize(self.raw_image, (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA)
+        self.thumb_image = cv2.resize(
+            self.raw_image,
+            (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)),
+            interpolation=cv2.INTER_AREA,
+        )
         self.input_image_thumbnail.set_image(self.thumb_image)
-        self.input_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
+        self.input_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
         self.y_top.SetValue(0)
         self.y_bottom.SetValue(self.raw_image.shape[0])
         event.Skip()
 
     def __on_mouse_click_thumbnail(self, event):
-        x = int(event.image_x / self.thumb_ratio + .5)
+        x = int(event.image_x / self.thumb_ratio + 0.5)
         self.__show_preview(x)
         event.Skip()
 
@@ -575,11 +654,11 @@ class MainFrame(ToolFrame):
 
     def __on_save_button_clicked(self, event):
         if self.raw_image is None:
-            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
-        if  not self.positions or None in self.positions:
-            wx.MessageBox('調整位置の座標が設定されていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+        if not self.positions or None in self.positions:
+            wx.MessageBox('調整位置の座標が設定されていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
 
@@ -587,12 +666,13 @@ class MainFrame(ToolFrame):
         output_filename = input_path.stem + ADJUST_SUFFIX + input_path.suffix
 
         with wx.FileDialog(
-            self, 
-            '調整したステッチング画像の保存先ファイル名を入力してください。', 
+            self,
+            '調整したステッチング画像の保存先ファイル名を入力してください。',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
             wildcard=IMAGE_FILE_WILDCARD,
-            style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             output_path = get_path(fileDialog.GetPath())
@@ -600,19 +680,28 @@ class MainFrame(ToolFrame):
             try:
                 buf, _ = self.__adjust_image()
                 cv2.imwrite(str(output_path), cv2.cvtColor(buf, cv2.COLOR_RGB2BGR))
-                self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
-                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
+                self.output_image_thumbnail.set_image(
+                    cv2.resize(
+                        buf,
+                        (
+                            int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
+                            dpi_aware(self, THUMBNAIL_HEIGHT),
+                        ),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                )
+                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
             except Exception as excep:
-                wx.MessageBox(str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+                wx.MessageBox(str(excep), 'エラー', wx.OK | wx.ICON_ERROR)
         event.Skip()
 
     def __on_save_split_button_clicked(self, event):
         if self.raw_image is None:
-            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+            wx.MessageBox('ステッチング画像が読み込まれていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
-        if  not self.positions or None in self.positions:
-            wx.MessageBox('調整位置の座標が設定されていません。', 'エラー', wx.OK|wx.ICON_ERROR)
+        if not self.positions or None in self.positions:
+            wx.MessageBox('調整位置の座標が設定されていません。', 'エラー', wx.OK | wx.ICON_ERROR)
             event.Skip()
             return
 
@@ -620,12 +709,13 @@ class MainFrame(ToolFrame):
         output_filename = input_path.stem + SPLIT_SUFFIX + input_path.suffix
 
         with wx.FileDialog(
-            self, 
-            '調整したステッチング画像の保存先ファイル名を入力してください。', 
+            self,
+            '調整したステッチング画像の保存先ファイル名を入力してください。',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
             wildcard=IMAGE_FILE_WILDCARD,
-            style=wx.FD_SAVE) as fileDialog:
+            style=wx.FD_SAVE,
+        ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
             output_path = get_path(fileDialog.GetPath())
@@ -634,11 +724,22 @@ class MainFrame(ToolFrame):
             try:
                 buf, pos = self.__adjust_image()
                 for i in range(1, len(pos)):
-                    cv2.imwrite(output_path_pattern.format(i), cv2.cvtColor(buf[:, pos[i-1]:pos[i], :], cv2.COLOR_RGB2BGR))
-                self.output_image_thumbnail.set_image(cv2.resize(buf, (int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]), dpi_aware(self, THUMBNAIL_HEIGHT)), interpolation=cv2.INTER_AREA))
-                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT)//2, 1.0)
+                    cv2.imwrite(
+                        output_path_pattern.format(i), cv2.cvtColor(buf[:, pos[i - 1] : pos[i], :], cv2.COLOR_RGB2BGR)
+                    )
+                self.output_image_thumbnail.set_image(
+                    cv2.resize(
+                        buf,
+                        (
+                            int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
+                            dpi_aware(self, THUMBNAIL_HEIGHT),
+                        ),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                )
+                self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
             except Exception as excep:
-                wx.MessageBox(str(excep), 'エラー', wx.OK|wx.ICON_ERROR)
+                wx.MessageBox(str(excep), 'エラー', wx.OK | wx.ICON_ERROR)
         event.Skip()
 
     def __on_folder_button_clicked(self, event):

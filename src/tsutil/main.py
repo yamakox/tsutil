@@ -8,8 +8,8 @@ from .main_frame import MainFrame
 plt.switch_backend('Agg')
 Image.MAX_IMAGE_PIXELS = 5000000 * 3840
 
-# MARK: app instance
 
+# MARK: app instance
 class MainApp(wx.App):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -21,18 +21,20 @@ class MainApp(wx.App):
 
         if not shutil.which('ffmpeg'):
             wx.MessageBox(
-                "ffmpegが見つかりません。\nインストールしてください。",
+                'ffmpegが見つかりません。\nインストールしてください。',
                 APP_NAME,
-                wx.OK|wx.ICON_ERROR,
+                wx.OK | wx.ICON_ERROR,
             )
         else:
             self.frame = MainFrame(None)
             self.frame.Show()
         return True
 
+
 def main():
     app = MainApp()
     app.MainLoop()
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()

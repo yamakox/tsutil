@@ -17,20 +17,23 @@ DRAGGING_CORNER_LB = 304
 myEVT_CLIP_RECT_CHANGED = wx.NewEventType()
 EVT_CLIP_RECT_CHANGED = wx.PyEventBinder(myEVT_CLIP_RECT_CHANGED)
 
+
 class ClipRectChangedEvent(wx.ThreadEvent):
     def __init__(self, clip: Rect):
         super().__init__(myEVT_CLIP_RECT_CHANGED)
         self.clip = clip
 
+
 # MARF: functions
+
 
 def _even(x):
     return int(x + 1) & ~1
 
-# MARK: main class
 
+# MARK: main class
 class ClipImageViewer(BaseImageViewer):
-    def __init__(self, parent, clip: Rect, field_visible: bool=False, field_add_mode: bool=False, *args, **kwargs):
+    def __init__(self, parent, clip: Rect, field_visible: bool = False, field_add_mode: bool = False, *args, **kwargs):
         super().__init__(parent, field_visible, field_add_mode, *args, **kwargs)
         self.clip = clip
         self.CORNER_SIZE = dpi_aware(parent, CORNER_SIZE)
@@ -71,13 +74,13 @@ class ClipImageViewer(BaseImageViewer):
         x = event.GetX()
         y = event.GetY()
         cx, cy = self.get_view_position(self.clip.left, self.clip.top)
-        if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy  + self.CORNER_SIZE:
+        if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy + self.CORNER_SIZE:
             capture_mouse(self)
             self.dragging = DRAGGING_CORNER_LT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(self.clip.right, self.clip.top)
-        if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy  + self.CORNER_SIZE:
+        if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy + self.CORNER_SIZE:
             capture_mouse(self)
             self.dragging = DRAGGING_CORNER_RT
             self.dragging_x, self.dragging_y = x - cx, y - cy

@@ -17,15 +17,24 @@ DRAGGING_CORNER_LB = 204
 myEVT_PERSPECTIVE_POINTS_CHANGED = wx.NewEventType()
 EVT_PERSPECTIVE_POINTS_CHANGED = wx.PyEventBinder(myEVT_PERSPECTIVE_POINTS_CHANGED)
 
+
 class PerspectivePointsChangedEvent(wx.ThreadEvent):
     def __init__(self, perspective_points: PerspectivePoints):
         super().__init__(myEVT_PERSPECTIVE_POINTS_CHANGED)
         self.perspective_points = perspective_points
 
-# MARK: main class
 
+# MARK: main class
 class DeshakingImageViewer(BaseImageViewer):
-    def __init__(self, parent, perspective_points: PerspectivePoints, field_visible: bool=False, field_add_mode: bool=False, *args, **kwargs):
+    def __init__(
+        self,
+        parent,
+        perspective_points: PerspectivePoints,
+        field_visible: bool = False,
+        field_add_mode: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(parent, field_visible, field_add_mode, *args, **kwargs)
         self.perspective_points = perspective_points
         self.CORNER_SIZE = dpi_aware(parent, CORNER_SIZE)
@@ -68,13 +77,13 @@ class DeshakingImageViewer(BaseImageViewer):
         y = event.GetY()
         p = self.perspective_points
         cx, cy = self.get_view_position(*p.left_top.to_tuple())
-        if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy  + self.CORNER_SIZE:
+        if cx <= x < cx + self.CORNER_SIZE and cy <= y < cy + self.CORNER_SIZE:
             capture_mouse(self)
             self.dragging = DRAGGING_CORNER_LT
             self.dragging_x, self.dragging_y = x - cx, y - cy
             return
         cx, cy = self.get_view_position(*p.right_top.to_tuple())
-        if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy  + self.CORNER_SIZE:
+        if cx - self.CORNER_SIZE <= x < cx and cy <= y < cy + self.CORNER_SIZE:
             capture_mouse(self)
             self.dragging = DRAGGING_CORNER_RT
             self.dragging_x, self.dragging_y = x - cx, y - cy
@@ -114,29 +123,29 @@ class DeshakingImageViewer(BaseImageViewer):
         cy = min(max(self.regions['preview'].GetTop(), cy), self.regions['preview'].GetBottom())
         if self.dragging == DRAGGING_CORNER_LT:
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
-            ix = min(max(0, int(ix + .5)), self.perspective_points.right_limit() - iw_min)
-            iy = min(max(0, int(iy + .5)), self.perspective_points.bottom_limit() - ih_min)
+            ix = min(max(0, int(ix + 0.5)), self.perspective_points.right_limit() - iw_min)
+            iy = min(max(0, int(iy + 0.5)), self.perspective_points.bottom_limit() - ih_min)
             self.perspective_points.left_top.x = ix
             self.perspective_points.left_top.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_RT:
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
-            ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + .5)), self.image.shape[1])
-            iy = min(max(0, int(iy + .5)), self.perspective_points.bottom_limit() - ih_min)
+            ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + 0.5)), self.image.shape[1])
+            iy = min(max(0, int(iy + 0.5)), self.perspective_points.bottom_limit() - ih_min)
             self.perspective_points.right_top.x = ix
             self.perspective_points.right_top.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_RB:
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
-            ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + .5)), self.image.shape[1])
-            iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + .5)), self.image.shape[0])
+            ix = min(max(self.perspective_points.left_limit() + iw_min, int(ix + 0.5)), self.image.shape[1])
+            iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + 0.5)), self.image.shape[0])
             self.perspective_points.right_bottom.x = ix
             self.perspective_points.right_bottom.y = iy
             self.Refresh()
         elif self.dragging == DRAGGING_CORNER_LB:
             ix, iy = self.get_image_precise_position(mouse_pos=(cx, cy))
-            ix = min(max(0, int(ix + .5)), self.perspective_points.right_limit() - iw_min)
-            iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + .5)), self.image.shape[0])
+            ix = min(max(0, int(ix + 0.5)), self.perspective_points.right_limit() - iw_min)
+            iy = min(max(self.perspective_points.top_limit() + ih_min, int(iy + 0.5)), self.image.shape[0])
             self.perspective_points.left_bottom.x = ix
             self.perspective_points.left_bottom.y = iy
             self.Refresh()
