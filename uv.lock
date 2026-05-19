@@ -628,7 +628,7 @@ requires-dist = [
     { name = "opencv-python-headless", specifier = ">=4.11.0,<5.0.0" },
     { name = "pydantic", specifier = ">=2.11.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.1.1,<2.0.0" },
-    { name = "wxpython", specifier = ">=4.2.3" },
+    { name = "wxpython", specifier = ">=4.2.3,<4.2.5" },
 ]
 
 [package.metadata.requires-dev]
