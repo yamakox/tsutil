@@ -17,13 +17,13 @@
 - [tsutil](#tsutil)
   - [特徴](#特徴)
   - [インストール](#インストール)
-    - [Pythonのインストール](#pythonのインストール)
+    - [uvとPythonのインストール](#uvとpythonのインストール)
     - [ffmpegのインストール](#ffmpegのインストール)
       - [Windowsの場合](#windowsの場合)
       - [macOSの場合](#macosの場合)
       - [Linuxの場合](#linuxの場合)
     - [tsutilのインストール](#tsutilのインストール)
-  - [起動](#起動)
+  - [使い方](#使い方)
 
 ## 特徴
 
@@ -37,9 +37,15 @@
 
 ## インストール
 
-### Pythonのインストール
+### uvとPythonのインストール
+
+tsutilのインストールは[**uv**](https://docs.astral.sh/uv/)の使用を推奨します。まずは、[uvの公式インストーラ](https://docs.astral.sh/uv/#installation)を使ってuvをインストールしてください。
 
 本プログラムはPython 3.12にて開発しています。Python 3.12以降をインストールしてください。
+
+```bash
+uv python install 3.12
+```
 
 ### ffmpegのインストール
 
@@ -71,16 +77,18 @@ sudo apt install ffmpeg
 
 ### tsutilのインストール
 
-ターミナルで`pip3`コマンドを使ってインストールします。Pythonの仮想環境([venv](https://docs.python.org/ja/3.13/library/venv.html))を作ってTrainScannerといっしょにインストールしておくと良いでしょう。
+Pythonの仮想環境([venv](https://docs.python.org/ja/3.13/library/venv.html))を作ってインストールします。TrainScannerもいっしょにインストールしておくと良いでしょう。
 
 ```bash
-pip3 install git+https://github.com/yamakox/tsutil.git
+uv python pin 3.12
+uv venv
+uv pip install -U git+https://github.com/yamakox/tsutil.git
 ```
 
 補足: [Ubuntu Linuxにインストール](https://discuss.wxpython.org/t/install-wxpython-4-2-2-on-ubuntu/37162)するときは、あらかじめ`wxPython`を以下のコマンドでインストールしてください。(以下のURLはUbuntu 24.04の場合)
 
 ```bash
-pip3 install -v -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython
+uv pip install -v -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython
 ```
 
 さらに補足: Xubuntu Desktopの`外観`設定でカスタムDPIを設定していると正常なサイズで表示できませんでした。このため、`.env`ファイルに`DPI_AWARE`環境変数でカスタムDPIを本プログラムに渡せるようにしています。例えば`外観`のカスタムDPI設定が144の場合:
@@ -89,10 +97,14 @@ pip3 install -v -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ub
 DPI_AWARE=144
 ```
 
-## 起動
+## 使い方
 
 ターミナルで以下のコマンドを入力すると、メイン画面が開きます。
 
 ```bash
-tsutil
+uv run tsutil
 ```
+
+tsutilでは、動画データを連続した画像ファイルに展開して、輝度や色合いの調整、画像の回転や台形の補正、手ブレ補正などを行うことができます。Photoshopのバッチ処理を使った画像処理も可能になります。
+
+連続した画像データの詳細については、[こちらの記事](https://yamakox.github.io/trainscanner.html)を参考にしてください。
