@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import cv2
 import numpy as np
 from PIL import Image
+from pathlib import Path
 from .common import (
     logger,
     make_file_picker_ctrl,
@@ -37,13 +38,17 @@ DEFAULT_PREVIEW_MESSAGE = '屋根Y・足元Y・列車の調整位置を選択し
 class Position(BaseModel):
     length: int = 0
     description: str = '車両の位置'
-    coupler: bool = True
+    coupler: bool = True  # 車両の連結している場所の場合はTrue、車両の途中の場合はFalse
 
 
 class MeasurementData(BaseModel):
     height: int = 0
     factor: float = 1.00
     positions: list[Position] = []
+
+
+class MeasurementDataSet(BaseModel):
+    dataset: dict[str, MeasurementData] = {}
 
 
 def M(height: int, factor: float, positions: list[tuple[int, str]]):
@@ -196,7 +201,41 @@ MEASUREMENT_DATASET = {
             (6000, '6両目のノーズ先端', False),
         ],
     ),
+    # '瑞風': M(
+    #     height=4070,    # 先頭車は4083mm、中間車は4070mm
+    #     factor=1.00,
+    #     positions=[
+    #         (0, '1両目のノーズ先端', False),
+    #         (21600, '1両目と2両目の間', True),
+    #         (20800, '2両目と3両目の間', True),
+    #         (20800, '3両目と4両目の間', True),
+    #         (20800, '4両目と5両目の間', True),
+    #         (20800, '5両目と6両目の間', True),
+    #         (20800, '6両目と7両目の間', True),
+    #         (20800, '7両目と8両目の間', True),
+    #         (20800, '8両目と9両目の間', True),
+    #         (20800, '9両目と10両目の間', True),
+    #         (21600, '10両目のノーズ先端', False),
+    #     ],
+    # ),
 }
+
+
+# MARK: load adjuster.json
+def _load_adjuster_json():
+    path = Path('./adjuster.json')
+    if not path.exists():
+        return
+    with open(path, 'r') as f:
+        try:
+            dataset = MeasurementDataSet.model_validate_json(f.read())
+            for key, value in dataset.dataset.items():
+                MEASUREMENT_DATASET[key] = value
+        except Exception as excep:
+            logger.error(f'adjuster.jsonファイルの読み込みエラー: {str(excep)}')
+
+
+_load_adjuster_json()
 
 
 # MARK: main window
