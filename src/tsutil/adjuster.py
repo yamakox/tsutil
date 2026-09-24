@@ -1,14 +1,13 @@
 import wx
-import wx.adv
 from pydantic import BaseModel
 import cv2
 import numpy as np
-from PIL import Image
 from pathlib import Path
+import tifffile
 from .common import (
     logger,
     make_file_picker_ctrl,
-    IMAGE_FILE_WILDCARD,
+    IMAGE_FILE_WILDCARD_W_TIFF,
     dpi_aware_size,
     dpi_aware,
     get_spin_ctrl_value,
@@ -221,6 +220,13 @@ MEASUREMENT_DATASET = {
 }
 
 
+# MARK: convert 16bit image data to 8bit
+def _t8(a):
+    if a.dtype == np.uint16:
+        return (a // 256).astype(np.uint8)
+    return a
+
+
 # MARK: load adjuster.json
 def _load_adjuster_json():
     path = Path('./adjuster.json')
@@ -266,7 +272,7 @@ class MainFrame(ToolFrame):
         self.input_file_picker = make_file_picker_ctrl(
             input_file_panel,
             message='ステッチング画像ファイルを選択してください。',
-            wildcard=IMAGE_FILE_WILDCARD,
+            wildcard=IMAGE_FILE_WILDCARD_W_TIFF,
             style=wx.FLP_OPEN | wx.FLP_USE_TEXTCTRL | wx.FLP_FILE_MUST_EXIST,
         )
         self.input_file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, self.__on_input_file_changed)
@@ -445,7 +451,7 @@ class MainFrame(ToolFrame):
             flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
         )
         self.unsharp_mask_parameter = wx.SpinCtrlDouble(
-            option_panel, value='1.0', min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT
+            option_panel, value='0.5', min=0.0, max=10.0, inc=0.1, style=wx.SP_ARROW_KEYS | wx.ALIGN_RIGHT
         )
         option_sizer.Add(self.unsharp_mask_parameter, flag=wx.EXPAND | wx.LEFT, border=MARGIN)
         option_panel.SetSizerAndFit(option_sizer)
@@ -542,7 +548,7 @@ class MainFrame(ToolFrame):
         self.previewer.clear()
         x0 = self.raw_image_x - s
         x1 = x0 + s * 2
-        self.previewer.set_image(self.raw_image[:, x0:x1, :])
+        self.previewer.set_image(_t8(self.raw_image[:, x0:x1, :]))
 
     def __adjust_image(self):
         index = self.selector.GetSelection()
@@ -581,7 +587,7 @@ class MainFrame(ToolFrame):
 
         logger.debug(f'resize from {w}x{h} to {dst_width}x{dst_height}')
 
-        buf = np.zeros((dst_height, dst_width, 3), dtype=np.uint8)
+        buf = np.zeros((dst_height, dst_width, 3), dtype=img.dtype)
         if self.positions[0] < margin or img.shape[1] - self.positions[-1] < margin:
             max_space = min(self.positions[0], img.shape[1] - self.positions[-1])
             raise Exception(f'余白を{max_space}以下にしてください。')
@@ -609,15 +615,14 @@ class MainFrame(ToolFrame):
             event.Skip()
             return
         self.__clear()
-        # self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
-        self.raw_image = np.asarray(Image.open(path))
+        self.raw_image = cv2.cvtColor(cv2.imread(str(path), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         self.thumb_ratio = dpi_aware(self, THUMBNAIL_HEIGHT) / self.raw_image.shape[0]
         self.thumb_image = cv2.resize(
             self.raw_image,
             (int(self.raw_image.shape[1] * self.thumb_ratio), dpi_aware(self, THUMBNAIL_HEIGHT)),
             interpolation=cv2.INTER_AREA,
         )
-        self.input_image_thumbnail.set_image(self.thumb_image)
+        self.input_image_thumbnail.set_image(_t8(self.thumb_image))
         self.input_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
         self.y_top.SetValue(0)
         self.y_bottom.SetValue(self.raw_image.shape[0])
@@ -709,7 +714,7 @@ class MainFrame(ToolFrame):
             '調整したステッチング画像の保存先ファイル名を入力してください。',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
-            wildcard=IMAGE_FILE_WILDCARD,
+            wildcard=IMAGE_FILE_WILDCARD_W_TIFF,
             style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
         ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
@@ -718,17 +723,19 @@ class MainFrame(ToolFrame):
             self.output_filename_text.SetValue(str(output_path))
             try:
                 buf, _ = self.__adjust_image()
-                cv2.imwrite(str(output_path), cv2.cvtColor(buf, cv2.COLOR_RGB2BGR))
-                self.output_image_thumbnail.set_image(
-                    cv2.resize(
-                        buf,
-                        (
-                            int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
-                            dpi_aware(self, THUMBNAIL_HEIGHT),
-                        ),
-                        interpolation=cv2.INTER_AREA,
-                    )
+                if output_path.suffix == '.tif':
+                    tifffile.imwrite(str(output_path), buf, compression='deflate')
+                else:
+                    cv2.imwrite(str(output_path), cv2.cvtColor(buf, cv2.COLOR_RGB2BGR))
+                thumbnail = cv2.resize(
+                    buf,
+                    (
+                        int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
+                        dpi_aware(self, THUMBNAIL_HEIGHT),
+                    ),
+                    interpolation=cv2.INTER_AREA,
                 )
+                self.output_image_thumbnail.set_image(_t8(thumbnail))
                 self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
             except Exception as excep:
                 wx.MessageBox(str(excep), 'エラー', wx.OK | wx.ICON_ERROR)
@@ -752,7 +759,7 @@ class MainFrame(ToolFrame):
             '調整したステッチング画像の保存先ファイル名を入力してください。',
             defaultDir=str(input_path.parent),
             defaultFile=output_filename,
-            wildcard=IMAGE_FILE_WILDCARD,
+            wildcard=IMAGE_FILE_WILDCARD_W_TIFF,
             style=wx.FD_SAVE,
         ) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
@@ -763,19 +770,24 @@ class MainFrame(ToolFrame):
             try:
                 buf, pos = self.__adjust_image()
                 for i in range(1, len(pos)):
-                    cv2.imwrite(
-                        output_path_pattern.format(i), cv2.cvtColor(buf[:, pos[i - 1] : pos[i], :], cv2.COLOR_RGB2BGR)
-                    )
-                self.output_image_thumbnail.set_image(
-                    cv2.resize(
-                        buf,
-                        (
-                            int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
-                            dpi_aware(self, THUMBNAIL_HEIGHT),
-                        ),
-                        interpolation=cv2.INTER_AREA,
-                    )
+                    if output_path.suffix == '.tif':
+                        tifffile.imwrite(
+                            output_path_pattern.format(i), buf[:, pos[i - 1] : pos[i], :], compression='deflate'
+                        )
+                    else:
+                        cv2.imwrite(
+                            output_path_pattern.format(i),
+                            cv2.cvtColor(buf[:, pos[i - 1] : pos[i], :], cv2.COLOR_RGB2BGR),
+                        )
+                thumbnail = cv2.resize(
+                    buf,
+                    (
+                        int(buf.shape[1] * dpi_aware(self, THUMBNAIL_HEIGHT) / buf.shape[0]),
+                        dpi_aware(self, THUMBNAIL_HEIGHT),
+                    ),
+                    interpolation=cv2.INTER_AREA,
                 )
+                self.output_image_thumbnail.set_image(_t8(thumbnail))
                 self.output_image_thumbnail.set_image_zoom_position(0, dpi_aware(self, THUMBNAIL_HEIGHT) // 2, 1.0)
             except Exception as excep:
                 wx.MessageBox(str(excep), 'エラー', wx.OK | wx.ICON_ERROR)
@@ -783,7 +795,7 @@ class MainFrame(ToolFrame):
 
     def __on_folder_button_clicked(self, event):
         path = get_path(self.output_filename_text.GetValue())
-        if not path_exists(path):
+        if not path or not path_exists(path.parent):
             event.Skip()
             return
         wx.LaunchDefaultApplication(str(path.parent))

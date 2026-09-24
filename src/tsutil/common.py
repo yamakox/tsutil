@@ -18,6 +18,7 @@ MOVIE_FILE_SUFFIX = ['.mp4', '.mov', '.m4v']
 MOVIE_FILE_WILDCARD = '動画ファイル (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v'
 IMAGE_CATALOG_FILE_SUFFIX = ['.txt', '.lst']
 IMAGE_CATALOG_FILE_WILDCARD = '連続画像のカタログファイル (*.txt;*.lst)|*.txt;*.lst'
+IMAGE_FILE_WILDCARD_W_TIFF = '画像ファイル (*.tif;*.tiff;*.png;*.jpg)|*.tif;*.tiff;*.png;*.jpg'
 IMAGE_FILE_WILDCARD = '画像ファイル (*.png;*.jpg)|*.png;*.jpg'
 GIF_FILE_WILDCARD = 'GIFファイル (*.gif)|*.gif'
 

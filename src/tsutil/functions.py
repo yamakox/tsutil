@@ -132,7 +132,12 @@ def normalize_array(src: np.ndarray) -> np.ndarray:
 
 def unsharp_mask(img: np.ndarray, k: float = 1.5):
     kernel = _make_sharp_kernel(k)
-    return np.clip(cv2.filter2D(img, -1, kernel), 0, 255).astype(np.uint8)
+    if img.dtype == np.uint8:
+        return np.clip(cv2.filter2D(img, -1, kernel), 0, 255).astype(np.uint8)
+    elif img.dtype == np.uint16:
+        return np.clip(cv2.filter2D(img, -1, kernel), 0, 65535).astype(np.uint16)
+    else:
+        raise Exception(f'unsupported image type: {img.dtype=}')
 
 
 def _make_sharp_kernel(k):
